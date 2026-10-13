@@ -26,6 +26,12 @@
 - **Animated WebP** output (libwebp mux), preserving all frames and timing.
   Animated JPEG XL is not offered (macOS Image I/O cannot read it back). The
   inspector now correctly detects animated WebP sources.
+- **Lossless is verified, not assumed**: outputs are re-decoded and compared to
+  the source frame-by-frame; choosing "first frame/page only" is now blocked in
+  Lossless even when the target could hold every frame.
+- Fixed stale GUI state after dropping files (the Convert button and rows now
+  update), and corrected claimed depths/metadata so the app never advertises
+  preservation it does not perform.
 
 ## 0.4.0
 
