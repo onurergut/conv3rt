@@ -61,6 +61,28 @@ public enum AlphaBackground: Equatable, Sendable {
     case black
     case white
     case custom(red: Double, green: Double, blue: Double, alpha: Double)
+
+    /// Round-trippable storage form used by the app's preferences.
+    public var storageString: String {
+        switch self {
+        case .black: return "black"
+        case .white: return "white"
+        case .custom(let r, let g, let b, let a):
+            return "custom:\(r),\(g),\(b),\(a)"
+        }
+    }
+
+    /// Parses `storageString`, falling back to white for anything unrecognized.
+    public static func fromStorage(_ string: String?) -> AlphaBackground {
+        guard let string else { return .white }
+        if string == "black" { return .black }
+        if string.hasPrefix("custom:") {
+            let parts = string.dropFirst("custom:".count).split(separator: ",").compactMap { Double($0) }
+            if parts.count == 4 { return .custom(red: parts[0], green: parts[1], blue: parts[2], alpha: parts[3]) }
+            if parts.count == 3 { return .custom(red: parts[0], green: parts[1], blue: parts[2], alpha: 1) }
+        }
+        return .white
+    }
 }
 
 /// Complete, user-visible settings for a conversion run.

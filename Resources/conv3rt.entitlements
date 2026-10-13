@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+    conv3rt is distributed directly (not through the Mac App Store), so it is
+    not sandboxed and needs no file-access entitlements. Hardened Runtime is
+    enabled by the packaging script. This file is intentionally empty; add keys
+    here only if a future feature requires them.
+    -->
+</dict>
+</plist>

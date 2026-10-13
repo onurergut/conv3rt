@@ -76,6 +76,8 @@ struct ContentView: View {
                 }
                 .labelsHidden()
                 .frame(minWidth: 160)
+                .accessibilityLabel("Output format")
+                .accessibilityIdentifier("outputFormatPicker")
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -89,6 +91,8 @@ struct ContentView: View {
                 .labelsHidden()
                 .frame(width: 260)
                 .help(model.mode.subtitle)
+                .accessibilityLabel("Quality mode")
+                .accessibilityIdentifier("qualityModePicker")
             }
 
             Spacer()
@@ -138,6 +142,9 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(isDropTargeted ? Color.accentColor.opacity(0.08) : Color.clear)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Drop images here, or use Add Files, Add Folder, or paste from the clipboard")
+        .accessibilityIdentifier("dropArea")
     }
 
     // MARK: - File list
@@ -186,6 +193,8 @@ struct ContentView: View {
                 statusCell(item)
             }
         }
+        .accessibilityLabel("Files to convert")
+        .accessibilityIdentifier("fileList")
     }
 
     @ViewBuilder

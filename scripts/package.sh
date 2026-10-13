@@ -37,9 +37,10 @@ printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 echo "==> Signing..."
 if [ -n "${CODESIGN_IDENTITY:-}" ]; then
     codesign --force --deep --options runtime --timestamp \
+        --entitlements "$ROOT/Resources/conv3rt.entitlements" \
         --sign "$CODESIGN_IDENTITY" "$BUNDLE"
     codesign --verify --deep --strict --verbose=2 "$BUNDLE"
-    SIGN_STATE="signed with '$CODESIGN_IDENTITY' (Hardened Runtime). Notarization still required for distribution."
+    SIGN_STATE="signed with '$CODESIGN_IDENTITY' (Hardened Runtime). Run scripts/notarize.sh before distributing."
 else
     codesign --force --deep --sign - "$BUNDLE" 2>/dev/null || true
     SIGN_STATE="ad-hoc signed (NOT for distribution; set CODESIGN_IDENTITY to sign properly)."

@@ -45,7 +45,7 @@ final class AppModel: ObservableObject {
         self.mode = ConversionMode(rawValue: d.string(forKey: Keys.mode) ?? "") ?? .lossless
         self.metadataPolicy = MetadataPolicy(rawValue: d.string(forKey: Keys.metadata) ?? "") ?? .keep
         self.framePolicy = FramePolicy(rawValue: d.string(forKey: Keys.framePolicy) ?? "") ?? .undecided
-        self.alphaBackground = AppModel.decodeBackground(d.string(forKey: Keys.alphaBG))
+        self.alphaBackground = AlphaBackground.fromStorage(d.string(forKey: Keys.alphaBG))
         self.lossyQuality = d.object(forKey: Keys.quality) as? Double ?? 0.9
         self.pdfDPI = d.object(forKey: Keys.pdfDPI) as? Double ?? 144
         self.svgScale = d.object(forKey: Keys.svgScale) as? Double ?? 2.0
@@ -68,27 +68,12 @@ final class AppModel: ObservableObject {
         static let output = "conv3rt.output"
     }
 
-    private static func decodeBackground(_ raw: String?) -> AlphaBackground {
-        guard let raw else { return .white }
-        if raw == "black" { return .black }
-        if raw.hasPrefix("custom:") {
-            let parts = raw.dropFirst("custom:".count).split(separator: ",").compactMap { Double($0) }
-            if parts.count == 3 { return .custom(red: parts[0], green: parts[1], blue: parts[2], alpha: 1) }
-        }
-        return .white
-    }
-
     private func persist() {
         defaults.set(selectedFormatID, forKey: Keys.format)
         defaults.set(mode.rawValue, forKey: Keys.mode)
         defaults.set(metadataPolicy.rawValue, forKey: Keys.metadata)
         defaults.set(framePolicy.rawValue, forKey: Keys.framePolicy)
-        switch alphaBackground {
-        case .black: defaults.set("black", forKey: Keys.alphaBG)
-        case .white: defaults.set("white", forKey: Keys.alphaBG)
-        case .custom(let r, let g, let b, _):
-            defaults.set("custom:\(r),\(g),\(b)", forKey: Keys.alphaBG)
-        }
+        defaults.set(alphaBackground.storageString, forKey: Keys.alphaBG)
         defaults.set(lossyQuality, forKey: Keys.quality)
         defaults.set(pdfDPI, forKey: Keys.pdfDPI)
         defaults.set(svgScale, forKey: Keys.svgScale)
