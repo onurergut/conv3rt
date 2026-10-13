@@ -132,12 +132,12 @@ public struct ConversionEngine: Sendable {
                               target: FormatCapability, settings: ConversionSettings,
                               isCancelled: @escaping () -> Bool,
                               progress: (@Sendable (Double) -> Void)?) throws {
-        if target.id == "webp" {
+        if Self.isCustomCodec(target.id) {
             guard indices.count == 1 else {
-                throw ConversionError.encodeFailed("Animated WebP output is not supported.")
+                throw ConversionError.encodeFailed("Animated \(target.displayName) output is not supported.")
             }
-            try encodeWebPOne(provider: provider, index: indices[0], to: url,
-                              target: target, settings: settings)
+            try encodeCustomOne(provider: provider, index: indices[0], to: url,
+                                target: target, settings: settings)
             progress?(1)
             return
         }
@@ -168,8 +168,8 @@ public struct ConversionEngine: Sendable {
 
     private func encodeSingleFrame(provider: any SourceFrameProvider, index: Int, to url: URL,
                                    target: FormatCapability, settings: ConversionSettings) throws {
-        if target.id == "webp" {
-            try encodeWebPOne(provider: provider, index: index, to: url, target: target, settings: settings)
+        if Self.isCustomCodec(target.id) {
+            try encodeCustomOne(provider: provider, index: index, to: url, target: target, settings: settings)
             return
         }
         guard let image = provider.image(at: index) else {
@@ -188,16 +188,28 @@ public struct ConversionEngine: Sendable {
         }
     }
 
-    /// Encodes one frame as a single-frame WebP via the bundled libwebp.
-    private func encodeWebPOne(provider: any SourceFrameProvider, index: Int, to url: URL,
-                               target: FormatCapability, settings: ConversionSettings) throws {
+    /// Formats written by a bundled codec rather than Apple Image I/O.
+    static func isCustomCodec(_ id: String) -> Bool {
+        id == "webp" || id == "jxl"
+    }
+
+    /// Encodes one frame as a single-frame WebP or JPEG XL via the bundled codec.
+    private func encodeCustomOne(provider: any SourceFrameProvider, index: Int, to url: URL,
+                                 target: FormatCapability, settings: ConversionSettings) throws {
         guard let image = provider.image(at: index) else {
             throw ConversionError.cannotDecodeFrame(index)
         }
         let prepared = prepare(image, target: target, settings: settings)
-        let data = try WebPEncoder.encode(image: prepared,
-                                          lossless: settings.mode == .lossless,
-                                          quality: quality)
+        let lossless = settings.mode == .lossless
+        let data: Data
+        switch target.id {
+        case "webp":
+            data = try WebPEncoder.encode(image: prepared, lossless: lossless, quality: quality)
+        case "jxl":
+            data = try JXLEncoder.encode(image: prepared, lossless: lossless, quality: quality)
+        default:
+            throw ConversionError.encodeFailed("No encoder for \(target.displayName).")
+        }
         try data.write(to: url, options: .atomic)
     }
 

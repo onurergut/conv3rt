@@ -5,3 +5,6 @@ dist/
 .DS_Store
 .swiftpm/
 ThirdParty/libwebp/
+ThirdParty/jxl-src/
+ThirdParty/jxl-build-*/
+ThirdParty/jxl-lib/

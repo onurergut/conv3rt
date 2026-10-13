@@ -5,12 +5,14 @@ faked in the UI.
 
 ## Format coverage
 
-- **AVIF and JPEG XL cannot be written.** macOS Image I/O can decode them but not
-  encode them, and no bundled encoder is shipped for them. They do not appear as
-  output targets. See [`CODECS.md`](CODECS.md).
+- **AVIF cannot be written.** macOS Image I/O can decode it but not encode it,
+  and bundling an AV1 encoder would add tens of megabytes. Not an output target.
 - **WebP can be written** (bundled libwebp). Lossless uses `exact` mode and the
   ICC profile is written; **EXIF/XMP are not yet written into WebP**, and
   animated WebP output is not implemented.
+- **JPEG XL can be written only if you build libjxl** (`scripts/build-jxl.sh`).
+  Without it, JPEG XL is read-only. The ICC profile is embedded; EXIF/XMP are
+  not written, and animated JXL is not implemented.
 - **Radiance HDR, SGI, PICT are read-only** on macOS; not output targets.
 - **JPEG 2000 output is lossy.** Image I/O writes JP2 lossily by default
   (verified: sample 0 → 1), so it is not offered as a lossless target.

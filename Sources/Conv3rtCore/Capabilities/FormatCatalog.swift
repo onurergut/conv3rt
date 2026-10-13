@@ -142,13 +142,15 @@ public enum FormatCatalog {
                                      fileExtensions: ["jxl"])
             c.bitDepths = [8, 16, 32]
             c.supportsAlpha = true
-            c.supportsAnimation = true
+            c.supportsAnimation = false  // writing animated JXL is not implemented
             c.supportsColorProfile = true
-            c.supportsMetadata = true
+            c.supportsMetadata = false
             c.hasLosslessPath = true
-            c.losslessConditions = [.exactSamples, .notStructural]
-            c.limitations = ["Native macOS can read JPEG XL but not write it; that write path would need a bundled libjxl."]
-            c.evidence = .unverified
+            c.losslessConditions = [.exactSamples, .colorProfilePreserved]
+            c.limitations = ["Native macOS reads JPEG XL but cannot write it; conv3rt writes JXL with a bundled libjxl (off by default until built).",
+                             "The ICC profile is embedded; EXIF/XMP are not yet written.",
+                             "Animated JPEG XL output is not implemented."]
+            c.evidence = .verified
             return c
         }(),
 

@@ -31,6 +31,19 @@ Bundled third-party codecs
 
 No other third-party source code is compiled into this build.
 
+2. libjxl (optional — only if scripts/build-jxl.sh has been run)
+   Version:   0.11.2 (pinned)
+   Source:    https://github.com/libjxl/libjxl (tag v0.11.2)
+   Purpose:   JPEG XL encoding.
+   License:   BSD 3-Clause — see ThirdParty/jxl-src/LICENSE.
+   Bundled transitive dependencies compiled into the same library:
+     - Highway (Apache-2.0)             — SIMD
+     - Brotli (MIT)                     — entropy coding
+     - lcms2 (MIT)                      — color management
+     - libpng / zlib (libpng-2.0 / Zlib) — PNG codepath
+   When JPEG XL is built in, JPEG XL becomes a writable output target; without
+   it, JPEG XL is read-only (as on stock macOS).
+
 Test fixtures
 -------------
 All test images are generated programmatically at runtime (see

@@ -34,14 +34,14 @@ Highlights on macOS 15:
 | Capability | Examples |
 |---|---|
 | **Read** | JPEG, PNG, TIFF, BMP, GIF, HEIC/HEIF, WebP, AVIF, JPEG XL, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF, nearly all camera RAW families (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, …) |
-| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, **WebP**, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF |
-| **Read-only** | AVIF, JPEG XL, Radiance HDR, SGI, PICT, all camera RAW |
+| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, **WebP**, **JPEG XL** (if built), JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF |
+| **Read-only** | AVIF, Radiance HDR, SGI, PICT, all camera RAW |
 
 WebP is **read** by macOS Image I/O and **written** by the bundled libwebp
-(BSD-3). It is the only bundled third-party codec; others (AVIF, JPEG XL) are
-**not** output targets because macOS cannot encode them and no encoder is
-bundled. conv3rt does not pretend otherwise. See
-[`docs/CODECS.md`](docs/CODECS.md).
+(BSD-3). JPEG XL is written by libjxl (BSD-3) when you build it — see
+[docs/CODECS.md](docs/CODECS.md). AVIF is **not** an output target because macOS
+cannot encode it and bundling an AV1 encoder would be tens of megabytes. conv3rt
+does not pretend otherwise.
 
 ## The Lossless contract
 
@@ -64,10 +64,18 @@ swift run conv3rt
 # Print the live format capability matrix
 swift run conv3rt --dump-capabilities
 
+# Optional: enable JPEG XL writing (builds libjxl, ~a few minutes per arch)
+scripts/build-jxl.sh arm64
+scripts/build-jxl.sh x86_64
+
 # Build a distributable .app for one architecture
 scripts/package.sh arm64          # Apple Silicon
 scripts/package.sh x86_64         # Intel
 ```
+
+WebP writing works out of the box. JPEG XL writing is optional: build libjxl
+first (the package detects it and links it; otherwise JPEG XL is read-only and
+its tests skip).
 
 See [`docs/PACKAGING.md`](docs/PACKAGING.md) for signing, notarization and
 release steps.
