@@ -19,6 +19,11 @@ enum Diagnostics {
             dumpMatrix()
             exit(0)
         }
+        if let i = args.firstIndex(of: "--bench") {
+            let count = (i + 1 < args.count) ? (Int(args[i + 1]) ?? 1000) : 1000
+            Bench.run(count: count)
+            exit(0)
+        }
     }
 
     /// Emits the format matrix as Markdown, generated from the live registry so

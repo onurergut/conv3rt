@@ -59,6 +59,26 @@ final class ComplexSourceTests: XCTestCase {
         XCTAssertGreaterThan(outInfo.pixelWidth, 0)
     }
 
+    func testPSDIsExportableAsRaster() throws {
+        let dir = TempDir()
+        // Image I/O can write a merged PSD; that is exactly the "complex source"
+        // shape conv3rt ingests (flattened image, no editable layers).
+        let psd = try Fixtures.write(Fixtures.manyColors(), uti: "com.adobe.photoshop-image",
+                                     ext: "psd", directory: dir.url, name: "doc")
+        let info = try inspector.inspect(url: psd)
+        XCTAssertEqual(info.detectedUTI, "com.adobe.photoshop-image")
+
+        let plan = planner.plan(source: info, target: target("png"),
+                                settings: ConversionSettings(mode: .highestQuality))
+        XCTAssertTrue(plan.isStructural, "PSD export is a flattened raster")
+        XCTAssertTrue(plan.isConvertible, plan.summary)
+
+        let result = try ConversionEngine().convert(plan: plan, outputDirectory: dir.url,
+                                                    namer: OutputNamer(), target: target("png"))
+        XCTAssertEqual(result.outputs.count, 1)
+        XCTAssertEqual(try inspector.inspect(url: result.outputs[0]).detectedUTI, "public.png")
+    }
+
     func testMisnamedFileIsDetectedByContent() throws {
         let dir = TempDir()
         // A real PNG with a .jpg name.
