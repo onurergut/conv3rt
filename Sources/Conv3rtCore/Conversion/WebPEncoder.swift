@@ -21,7 +21,11 @@ public enum WebPEncoder {
     public static func encode(image: CGImage, lossless: Bool, quality: Double,
                               exif: [UInt8]? = nil, xmp: [UInt8]? = nil) throws -> Data {
         let buffer = try RGBABuffer.tightlyPacked(from: image)
-        let icc: [UInt8] = image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? []
+        // The source ICC only describes the bytes if they are the source's own
+        // samples; the 8-bit sRGB fallback produces different bytes.
+        let icc: [UInt8] = buffer.preservedSamples
+            ? (image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? [])
+            : []
 
         var out: UnsafeMutablePointer<UInt8>?
         var outSize = 0
@@ -91,7 +95,9 @@ public enum WebPEncoder {
             durationsMs.append(Self.millis(f.duration))
         }
 
-        let icc: [UInt8] = first.image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? []
+        let icc: [UInt8] = firstBuffer.preservedSamples
+            ? (first.image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? [])
+            : []
 
         var out: UnsafeMutablePointer<UInt8>?
         var outSize = 0
@@ -140,6 +146,9 @@ enum RGBABuffer {
         let bytes: [UInt8]
         let width: Int
         let height: Int
+        /// True when the bytes are the image's own samples, so its ICC profile
+        /// still describes them. False when the 8-bit sRGB fallback was used.
+        let preservedSamples: Bool
     }
 
     static func tightlyPacked(from image: CGImage) throws -> Buffer {
@@ -172,14 +181,14 @@ enum RGBABuffer {
                         out[d + 3] = 255
                     }
                 }
-                return Buffer(bytes: out, width: width, height: height)
+                return Buffer(bytes: out, width: width, height: height, preservedSamples: true)
             case .last:   // RGBA, non-premultiplied — the exact case we must preserve.
                 for y in 0..<height {
                     let s = y * srcStride
                     let d = y * width * 4
                     for i in 0..<(width * 4) { out[d + i] = ptr[s + i] }
                 }
-                return Buffer(bytes: out, width: width, height: height)
+                return Buffer(bytes: out, width: width, height: height, preservedSamples: true)
             default:
                 break // premultiplied / gray / other → general path below
             }
@@ -196,6 +205,6 @@ enum RGBABuffer {
                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
             ctx?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         }
-        return Buffer(bytes: out, width: width, height: height)
+        return Buffer(bytes: out, width: width, height: height, preservedSamples: false)
     }
 }

@@ -124,15 +124,16 @@ public enum FormatCatalog {
         {
             var c = FormatCapability(id: "avif", uti: "public.avif", displayName: "AVIF",
                                      fileExtensions: ["avif"])
-            c.bitDepths = [8, 10, 12]
+            c.bitDepths = [8]
             c.supportsAlpha = true
-            c.supportsAnimation = true   // AVIF sequences; read only natively.
+            c.supportsAnimation = false  // writing animated AVIF is not implemented
             c.supportsColorProfile = true
-            c.supportsMetadata = true
+            c.supportsMetadata = false
             c.hasLosslessPath = false
             c.losslessConditions = [.notStructural]
             c.limitations = ["Native macOS read-only; conv3rt writes AVIF lossily with a bundled libavif + libaom (off by default until built).",
                              "No lossless AVIF: the RGB→YUV round trip, matrix, range and subsampling can all lose data.",
+                             "EXIF/GPS and XMP are not written into AVIF; only the ICC profile is embedded.",
                              "Animated AVIF output is not implemented; only the first/selected frame is written."]
             c.evidence = .verified
             return c
@@ -141,7 +142,7 @@ public enum FormatCatalog {
         {
             var c = FormatCapability(id: "jxl", uti: "public.jpeg-xl", displayName: "JPEG XL",
                                      fileExtensions: ["jxl"])
-            c.bitDepths = [8, 16, 32]
+            c.bitDepths = [8]
             c.supportsAlpha = true
             c.supportsAnimation = false  // writing animated JXL is not implemented
             c.supportsColorProfile = true
@@ -150,6 +151,7 @@ public enum FormatCatalog {
             c.losslessConditions = [.exactSamples, .colorProfilePreserved]
             c.limitations = ["Native macOS reads JPEG XL but cannot write it; conv3rt writes JXL with a bundled libjxl (off by default until built).",
                              "ICC, EXIF/GPS (Exif box) and XMP (xml box) are written; IPTC is not.",
+                             "The write path is 8-bit; 16/32-bit sources are reduced (Lossless blocks this).",
                              "Animated JPEG XL output is not implemented."]
             c.evidence = .verified
             return c

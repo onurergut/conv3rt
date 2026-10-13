@@ -69,28 +69,39 @@ public struct ConversionPlanner: Sendable {
         let targetPreserves = source.isAnimated ? target.supportsAnimation
                                                 : (source.pageCount > 1 ? target.supportsMultiPage : true)
         var expands = false
-        if total > 1 && !targetPreserves {
+        if total > 1 {
             switch settings.framePolicy {
             case .undecided:
-                changes.append(.init(severity: .blocking,
-                                     message: "\(target.displayName) cannot store all \(total) \(kind). Choose to export all \(kind) or use the first one.",
-                                     code: "frames.decisionRequired"))
+                if !targetPreserves {
+                    changes.append(.init(severity: .blocking,
+                                         message: "\(target.displayName) cannot store all \(total) \(kind). Choose to export all \(kind) or use the first one.",
+                                         code: "frames.decisionRequired"))
+                } else {
+                    changes.append(.init(severity: .info,
+                                         message: "All \(total) \(kind) and their timing will be preserved.",
+                                         code: "frames.preserved"))
+                }
             case .firstOnly:
+                // Discarding frames/pages is a content loss independent of
+                // whether the target could have held them, so it can never be
+                // offered as Lossless.
                 let sev: ChangeSeverity = lossless ? .blocking : .warning
                 let msg = lossless
-                    ? "Discarding \(total - 1) of \(total) \(kind) is not lossless. Switch to Highest Quality or export all \(kind)."
+                    ? "Using only the first of \(total) \(kind) is not lossless. Switch to Highest Quality or export all \(kind)."
                     : "Only the first of \(total) \(kind) will be used; the rest are discarded."
                 changes.append(.init(severity: sev, message: msg, code: "frames.firstOnly"))
             case .exportAll:
-                expands = true
-                changes.append(.init(severity: .info,
-                                     message: "All \(total) \(kind) will be written as separate files.",
-                                     code: "frames.exportAll"))
+                if targetPreserves {
+                    changes.append(.init(severity: .info,
+                                         message: "All \(total) \(kind) and their timing will be preserved.",
+                                         code: "frames.preserved"))
+                } else {
+                    expands = true
+                    changes.append(.init(severity: .info,
+                                         message: "All \(total) \(kind) will be written as separate files.",
+                                         code: "frames.exportAll"))
+                }
             }
-        } else if total > 1 && targetPreserves {
-            changes.append(.init(severity: .info,
-                                 message: "All \(total) \(kind) and their timing will be preserved.",
-                                 code: "frames.preserved"))
         }
 
         // --- Alpha ---------------------------------------------------------------

@@ -17,7 +17,9 @@ public enum JXLEncoder {
     public static func encode(image: CGImage, lossless: Bool, quality: Double,
                               exif: [UInt8]? = nil, xmp: [UInt8]? = nil) throws -> Data {
         let buffer = try RGBABuffer.tightlyPacked(from: image)
-        let icc: [UInt8] = image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? []
+        let icc: [UInt8] = buffer.preservedSamples
+            ? (image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? [])
+            : []
 
         var out: UnsafeMutablePointer<UInt8>?
         var outSize = 0

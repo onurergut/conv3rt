@@ -94,6 +94,12 @@ public struct ConversionEngine: Sendable {
                 try encodeSingleFrame(provider: provider, index: idx, to: safe.tempURL,
                                       target: target, settings: settings)
                 try verifier.verify(url: safe.tempURL, expectedUTI: target.uti, expectedFrames: 1)
+                if settings.mode == .lossless && !plan.isStructural {
+                    try LosslessVerifier().verify(sourceProvider: provider, sourceInfo: plan.source,
+                                                  sourceIndices: [idx], outputURL: safe.tempURL,
+                                                  expectedOutputFrames: 1)
+                }
+                if isCancelled() { throw ConversionError.canceled }
                 let finalURL = namer.uniqueURL(in: outputDirectory, baseName: frameName, fileExtension: ext)
                 let placed = try safe.commit(to: finalURL, namer: namer, baseName: frameName, ext: ext)
                 outputs.append(placed)
@@ -107,6 +113,12 @@ public struct ConversionEngine: Sendable {
             try encodeFrames(provider: provider, indices: frames, to: safe.tempURL,
                              target: target, settings: settings, isCancelled: isCancelled, progress: progress)
             try verifier.verify(url: safe.tempURL, expectedUTI: target.uti, expectedFrames: frames.count)
+            if settings.mode == .lossless && !plan.isStructural {
+                try LosslessVerifier().verify(sourceProvider: provider, sourceInfo: plan.source,
+                                              sourceIndices: frames, outputURL: safe.tempURL,
+                                              expectedOutputFrames: frames.count)
+            }
+            if isCancelled() { throw ConversionError.canceled }
             let finalURL = namer.uniqueURL(in: outputDirectory, baseName: baseName, fileExtension: ext)
             let placed = try safe.commit(to: finalURL, namer: namer, baseName: baseName, ext: ext)
             outputs.append(placed)
@@ -133,6 +145,7 @@ public struct ConversionEngine: Sendable {
                               isCancelled: @escaping () -> Bool,
                               progress: (@Sendable (Double) -> Void)?) throws {
         if Self.isCustomCodec(target.id) {
+            if isCancelled() { throw ConversionError.canceled }
             if indices.count > 1, Self.supportsAnimatedWrite(target.id) {
                 try encodeCustomAnimated(provider: provider, indices: indices, to: url,
                                          target: target, settings: settings, progress: progress)
