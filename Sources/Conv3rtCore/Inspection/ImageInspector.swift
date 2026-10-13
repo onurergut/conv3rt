@@ -62,15 +62,23 @@ public struct ImageInspector: Sendable {
             if let g = p[kCGImagePropertyGIFDictionary] as? [CFString: Any],
                let d = double(g[kCGImagePropertyGIFDelayTime]) {
                 durations.append(d)
+            } else if let w = p[kCGImagePropertyWebPDictionary] as? [CFString: Any],
+                      let d = double(w[kCGImagePropertyWebPDelayTime]) {
+                durations.append(d)
             }
         }
         let loopCount = int(gifDict?[kCGImagePropertyGIFLoopCount])
             ?? int(pngDict?[kCGImagePropertyAPNGLoopCount])
 
-        let isAnimatedType = UTTypeBridge.conformance(uti, toIdentifier: "com.compuserve.gif")
+        // Formats whose multi-image containers are animations, not page stacks.
+        // WebP/AVIF/JPEG XL carry animation without the GIF delay keys, so a
+        // multi-image file of these types is treated as animated regardless.
+        let animatedFamily = UTTypeBridge.conformance(uti, toIdentifier: "com.compuserve.gif")
             || UTTypeBridge.conformance(uti, toIdentifier: "public.heics")
-            || UTTypeBridge.conformance(uti, toIdentifier: "org.webmproject.webp") && durations.count > 1
-            || durations.count > 1
+            || UTTypeBridge.conformance(uti, toIdentifier: "org.webmproject.webp")
+            || UTTypeBridge.conformance(uti, toIdentifier: "public.avif")
+            || UTTypeBridge.conformance(uti, toIdentifier: "public.jpeg-xl")
+        let isAnimatedType = count > 1 && (animatedFamily || durations.count > 1)
 
         let frameCount = isAnimatedType ? count : 1
         let pageCount = isAnimatedType ? 1 : count

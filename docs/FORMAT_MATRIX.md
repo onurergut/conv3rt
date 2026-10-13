@@ -82,4 +82,4 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | SVG (vector) | `public.svg-image` | yes | — | yes | — | — | — | — | bundled | verified |
 | TGA | `com.truevision.tga-image` | yes | yes | yes | — | — | — | yes | imageIO | tested |
 | TIFF | `public.tiff` | yes | yes | yes | — | yes | yes | yes | imageIO | tested |
-| WebP | `org.webmproject.webp` | yes | yes | yes | — | — | yes | yes | imageIO | verified |
+| WebP | `org.webmproject.webp` | yes | yes | yes | yes | — | yes | yes | imageIO | verified |

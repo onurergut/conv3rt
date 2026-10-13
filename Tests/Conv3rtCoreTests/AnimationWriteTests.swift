@@ -86,6 +86,21 @@ final class AnimationWriteTests: XCTestCase {
         XCTAssertEqual(CGImageSourceGetCount(source), 1, "A still source stays a still WebP")
     }
 
+    func testInspectorReportsAnimatedWebPSource() throws {
+        let dir = TempDir()
+        let src = try Fixtures.animatedGIF(directory: dir.url, frames: 3)
+        let info = try inspector.inspect(url: src)
+        let plan = planner.plan(source: info, target: target("webp"),
+                                settings: ConversionSettings(mode: .highestQuality))
+        let result = try ConversionEngine().convert(plan: plan, outputDirectory: dir.url,
+                                                    namer: OutputNamer(), target: target("webp"))
+        // The inspector must see the produced animated WebP as animated, so an
+        // animated WebP used as a *source* later is never silently reduced.
+        let outInfo = try inspector.inspect(url: result.outputs[0])
+        XCTAssertTrue(outInfo.isAnimated, "An animated WebP source must inspect as animated")
+        XCTAssertEqual(outInfo.frameCount, 3)
+    }
+
     // MARK: - JPEG XL
 
     #if CONV3RT_JXL

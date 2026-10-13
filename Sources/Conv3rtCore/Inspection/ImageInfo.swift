@@ -45,7 +45,9 @@ public struct ImageInfo: Equatable, Sendable {
             && !UTTypeBridge.conformance(declaredUTI, toIdentifier: detectedUTI)
     }
 
-    public var isAnimated: Bool { frameCount > 1 && !frameDurations.isEmpty }
+    /// True when the source carries more than one animation frame. (Page stacks
+    /// such as multi-page TIFF set `pageCount`, not `frameCount`.)
+    public var isAnimated: Bool { frameCount > 1 }
     public var totalDuration: Double { frameDurations.reduce(0, +) }
 
     public var pixelDescription: String {
