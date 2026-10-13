@@ -18,6 +18,9 @@
 - `scripts/make-dmg.sh` for DMG packaging; CI workflow.
 - **Metadata writing**: WebP and JPEG XL now carry EXIF/GPS and XMP (plus ICC);
   IPTC is not written.
+- **Animated WebP** output (libwebp mux), preserving all frames and timing.
+  Animated JPEG XL is not offered (macOS Image I/O cannot read it back). The
+  inspector now correctly detects animated WebP sources.
 
 ## 0.4.0
 
