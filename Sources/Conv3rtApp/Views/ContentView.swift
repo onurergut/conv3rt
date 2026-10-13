@@ -99,14 +99,31 @@ struct ContentView: View {
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("Output Folder").font(.caption).foregroundStyle(.secondary)
-                Button {
-                    model.chooseOutputFolder()
-                } label: {
-                    Label(model.outputDirectory?.lastPathComponent ?? "Choose…",
-                          systemImage: "folder.badge.gearshape")
-                        .lineLimit(1)
+                HStack(spacing: 6) {
+                    Button {
+                        model.chooseOutputFolder()
+                    } label: {
+                        Label(model.outputDirectory?.lastPathComponent ?? "Choose…",
+                              systemImage: "folder.badge.gearshape")
+                            .lineLimit(1)
+                    }
+                    .help(model.outputDirectory?.path ?? "Choose an output folder")
+
+                    if !model.recentOutputFolders.isEmpty {
+                        Menu {
+                            ForEach(model.recentOutputFolders, id: \.self) { url in
+                                Button(url.lastPathComponent) { model.useRecentOutputFolder(url) }
+                            }
+                        } label: {
+                            Label("Recent Output Folders", systemImage: "clock.arrow.circlepath")
+                                .labelStyle(.iconOnly)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .help("Re-select a recent output folder")
+                        .accessibilityLabel("Recent output folders")
+                    }
                 }
-                .help(model.outputDirectory?.path ?? "Choose an output folder")
             }
 
             if model.isRunning {
@@ -189,12 +206,41 @@ struct ContentView: View {
             }
             .width(60)
 
+            TableColumn("Format") { item in
+                formatOverrideCell(item)
+            }
+            .width(150)
+
             TableColumn("Status") { item in
                 statusCell(item)
             }
         }
         .accessibilityLabel("Files to convert")
         .accessibilityIdentifier("fileList")
+    }
+
+    @ViewBuilder
+    private func formatOverrideCell(_ item: ImportItem) -> some View {
+        Menu {
+            Button("Use Global Format") { model.setFormatOverride(nil, for: item) }
+            Divider()
+            ForEach(model.writableFormats) { fmt in
+                Button(fmt.displayName) { model.setFormatOverride(fmt.id, for: item) }
+            }
+        } label: {
+            Text(overrideLabel(item)).lineLimit(1)
+        }
+        .menuStyle(.borderlessButton)
+        .help("Output format for this file")
+        .accessibilityLabel("Output format for \(item.displayName)")
+    }
+
+    private func overrideLabel(_ item: ImportItem) -> String {
+        if let id = item.formatOverrideID,
+           let fmt = model.registry.capability(id: id) {
+            return fmt.displayName
+        }
+        return "Global (\(model.selectedFormat?.displayName ?? "—"))"
     }
 
     @ViewBuilder
