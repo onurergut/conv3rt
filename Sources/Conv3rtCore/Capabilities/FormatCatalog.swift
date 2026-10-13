@@ -131,9 +131,10 @@ public enum FormatCatalog {
             c.supportsMetadata = true
             c.hasLosslessPath = false
             c.losslessConditions = [.notStructural]
-            c.limitations = ["Native macOS can read AVIF but not write it; writing is out of scope unless a bundled encoder is added.",
-                             "RGB→YUV, range, matrix, bit depth and subsampling can all lose data."]
-            c.evidence = .unverified
+            c.limitations = ["Native macOS read-only; conv3rt writes AVIF lossily with a bundled libavif + libaom (off by default until built).",
+                             "No lossless AVIF: the RGB→YUV round trip, matrix, range and subsampling can all lose data.",
+                             "Animated AVIF output is not implemented; only the first/selected frame is written."]
+            c.evidence = .verified
             return c
         }(),
 

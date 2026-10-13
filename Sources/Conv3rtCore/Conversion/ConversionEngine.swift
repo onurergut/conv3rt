@@ -195,7 +195,7 @@ public struct ConversionEngine: Sendable {
 
     /// Formats written by a bundled codec rather than Apple Image I/O.
     static func isCustomCodec(_ id: String) -> Bool {
-        ["webp", "jxl", "qoi", "pcx", "pfm", "dds"].contains(id)
+        ["webp", "jxl", "avif", "qoi", "pcx", "pfm", "dds"].contains(id)
     }
 
     /// Bundled-codec targets that can write an animation into a single file.
@@ -227,6 +227,10 @@ public struct ConversionEngine: Sendable {
         case "jxl":
             data = try JXLEncoder.encode(image: prepared, lossless: lossless, quality: quality,
                                          exif: exif, xmp: xmp)
+        case "avif":
+            // AVIF is a lossy target: `lossless` is ignored (the planner already
+            // blocks lossless for AVIF). ICC is taken from the frame's color space.
+            data = try AVIFEncoder.encode(image: prepared, lossless: lossless, quality: quality)
         case "qoi":
             data = try QOICodec.encode(prepared)
         case "pcx":

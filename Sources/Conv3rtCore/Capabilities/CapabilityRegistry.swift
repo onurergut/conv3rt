@@ -77,13 +77,17 @@ public final class CapabilityRegistry: @unchecked Sendable {
                 c.canRead = true
                 c.canWrite = true
             }
-            // WebP and JPEG XL are read by Image I/O but written by a bundled
-            // codec; their write capability follows the codec's availability.
+            // WebP, JPEG XL and AVIF are read by Image I/O but written by a
+            // bundled codec; their write capability follows the codec's
+            // availability.
             if c.id == "webp" {
                 c.canWrite = WebPEncoder.isAvailable
             }
             if c.id == "jxl" {
                 c.canWrite = JXLEncoder.isAvailable
+            }
+            if c.id == "avif" {
+                c.canWrite = AVIFEncoder.isAvailable
             }
             result.append(c)
             seenUTIs.insert(c.uti)

@@ -45,6 +45,9 @@ ThirdParty/libwebp/
 ThirdParty/jxl-src/
 ThirdParty/jxl-build-*/
 ThirdParty/jxl-lib/
+ThirdParty/avif-src/
+ThirdParty/avif-build-*/
+ThirdParty/avif-lib/
 
 # Internal development docs (not public)
 dev-docs/

@@ -10,6 +10,15 @@ let jxlHeaders = "ThirdParty/jxl-src/lib/include"
 let hasJXL = FileManager.default.fileExists(atPath: jxlLibPath)
     && FileManager.default.fileExists(atPath: jxlHeaders)
 
+// AVIF writing is enabled only when libavif (plus its aom encoder and libyuv)
+// has been built (see scripts/build-avif.sh). Without it, AVIF is simply not an
+// output target and its tests skip — a fresh clone still builds and tests
+// cleanly.
+let avifLibPath = "ThirdParty/avif-lib/fat"
+let avifHeaders = "ThirdParty/avif-lib/include/avif/avif.h"
+let hasAVIF = FileManager.default.fileExists(atPath: avifLibPath)
+    && FileManager.default.fileExists(atPath: avifHeaders)
+
 var coreDependencies: [Target.Dependency] = ["CWebP"]
 var coreSwiftSettings: [SwiftSetting] = [.enableUpcomingFeature("ExistentialAny")]
 
@@ -52,6 +61,29 @@ if hasJXL {
     coreSwiftSettings.append(.define("CONV3RT_JXL"))
 }
 
+if hasAVIF {
+    let absLib = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        .appendingPathComponent(avifLibPath).path
+    targets.append(.target(
+        name: "CAVIF",
+        path: "ThirdParty/avif-shim",
+        publicHeadersPath: ".",
+        cSettings: [
+            .headerSearchPath("../avif-lib/include"),
+            .unsafeFlags(["-Wno-deprecated-declarations"]),
+        ],
+        linkerSettings: [
+            .unsafeFlags([
+                "-L\(absLib)",
+                "-lavif", "-laom", "-lyuv",
+                "-lc++", "-lpthread", "-lm",
+            ]),
+        ]
+    ))
+    coreDependencies.append("CAVIF")
+    coreSwiftSettings.append(.define("CONV3RT_AVIF"))
+}
+
 targets.append(contentsOf: [
     .target(
         name: "Conv3rtCore",
@@ -65,7 +97,8 @@ targets.append(contentsOf: [
     .testTarget(
         name: "Conv3rtCoreTests",
         dependencies: ["Conv3rtCore"],
-        swiftSettings: hasJXL ? [.define("CONV3RT_JXL")] : []
+        swiftSettings: (hasJXL ? [.define("CONV3RT_JXL")] : [])
+            + (hasAVIF ? [.define("CONV3RT_AVIF")] : [])
     ),
 ])
 
