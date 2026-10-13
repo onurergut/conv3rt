@@ -6,6 +6,8 @@ struct ContentView: View {
     @EnvironmentObject var model: AppModel
     @State private var showAdvanced = false
     @State private var isDropTargeted = false
+    @State private var showSavePreset = false
+    @State private var presetName = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,6 +40,7 @@ struct ContentView: View {
                     .help("Paste an image from the clipboard")
             }
             ToolbarItem { Spacer() }
+            ToolbarItem { presetsMenu }
             ToolbarItem {
                 Toggle(isOn: $showAdvanced) {
                     Label("Advanced", systemImage: "slider.horizontal.3")
@@ -60,6 +63,43 @@ struct ContentView: View {
             Button("OK", role: .cancel) { model.lastError = nil }
         } message: {
             Text(model.lastError ?? "")
+        }
+    }
+
+    // MARK: - Presets
+
+    private var presetsMenu: some View {
+        Menu {
+            Button {
+                presetName = ""
+                showSavePreset = true
+            } label: {
+                Label("Save Current Settings…", systemImage: "square.and.arrow.down")
+            }
+
+            if !model.presets.isEmpty {
+                Divider()
+                ForEach(model.presets) { preset in
+                    Button(preset.name) { model.applyPreset(preset) }
+                }
+                Divider()
+                Menu("Delete Preset") {
+                    ForEach(model.presets) { preset in
+                        Button(preset.name, role: .destructive) { model.deletePreset(preset) }
+                    }
+                }
+            }
+        } label: {
+            Label("Presets", systemImage: "bookmark")
+        }
+        .help("Save, apply, or delete conversion presets")
+        .accessibilityLabel("Presets")
+        .alert("Save Preset", isPresented: $showSavePreset) {
+            TextField("Preset name", text: $presetName)
+            Button("Save") { model.saveCurrentAsPreset(named: presetName) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Save the current settings as a named preset.")
         }
     }
 

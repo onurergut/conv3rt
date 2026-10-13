@@ -12,6 +12,7 @@ final class AppModel: ObservableObject {
     private let planner = ConversionPlanner()
     private let scanner = FolderScanner()
     private let defaults = UserDefaults.standard
+    private let presetStore = PresetStore()
     private var runner = BatchRunner()
 
     @Published var items: [ImportItem] = []
@@ -32,6 +33,7 @@ final class AppModel: ObservableObject {
     @Published var keepFolderStructure: Bool { didSet { persist() } }
     @Published var outputDirectory: URL? { didSet { persistOutputFolder() } }
     @Published private(set) var recentOutputFolders: [URL] = []
+    @Published private(set) var presets: [ConversionPreset] = []
 
     var selectedFormat: FormatCapability? {
         registry.capability(id: selectedFormatID) ?? registry.writableFormats().first
@@ -57,6 +59,7 @@ final class AppModel: ObservableObject {
         if let path = d.string(forKey: Keys.output), FileManager.default.fileExists(atPath: path) {
             self.outputDirectory = URL(fileURLWithPath: path)
         }
+        self.presets = presetStore.load()
     }
 
     private enum Keys {
@@ -92,6 +95,52 @@ final class AppModel: ObservableObject {
         recents.insert(dir, at: 0)
         recentOutputFolders = Array(recents.prefix(5))
         defaults.set(recentOutputFolders.map(\.path), forKey: Keys.recentOutputs)
+    }
+
+    // MARK: - Presets
+
+    /// Snapshots the current settings under `name`. Replaces any preset with the
+    /// same name (case-insensitive).
+    func saveCurrentAsPreset(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let preset = ConversionPreset(
+            name: trimmed,
+            formatID: selectedFormatID,
+            mode: mode,
+            metadataPolicy: metadataPolicy,
+            framePolicy: framePolicy,
+            alphaBackground: alphaBackground,
+            lossyQuality: lossyQuality,
+            pdfDPI: pdfDPI,
+            svgScale: svgScale,
+            keepFolderStructure: keepFolderStructure
+        )
+        if let index = presets.firstIndex(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            presets[index] = preset
+        } else {
+            presets.append(preset)
+        }
+        presetStore.save(presets)
+        statusLine = "Saved preset “\(trimmed)”."
+    }
+
+    func applyPreset(_ preset: ConversionPreset) {
+        selectedFormatID = preset.formatID
+        mode = preset.mode
+        metadataPolicy = preset.metadataPolicy
+        framePolicy = preset.framePolicy
+        alphaBackground = preset.alphaBackground
+        lossyQuality = preset.lossyQuality
+        pdfDPI = preset.pdfDPI
+        svgScale = preset.svgScale
+        keepFolderStructure = preset.keepFolderStructure
+        statusLine = "Applied preset “\(preset.name)”."
+    }
+
+    func deletePreset(_ preset: ConversionPreset) {
+        presets.removeAll { $0.id == preset.id }
+        presetStore.save(presets)
     }
 
     // MARK: - Import
