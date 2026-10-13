@@ -14,6 +14,8 @@ final class ImportItem: Identifiable, ObservableObject {
     @Published var state: ConversionJobState = .pending
     @Published var thumbnail: NSImage?
     @Published var loadError: String?
+    /// Per-file output format override. nil targets the global format.
+    @Published var formatOverrideID: String?
 
     var displayName: String { url.lastPathComponent }
 

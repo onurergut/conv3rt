@@ -31,6 +31,7 @@ final class AppModel: ObservableObject {
     @Published var svgScale: Double { didSet { persist(); recomputePlans() } }
     @Published var keepFolderStructure: Bool { didSet { persist() } }
     @Published var outputDirectory: URL? { didSet { persistOutputFolder() } }
+    @Published private(set) var recentOutputFolders: [URL] = []
 
     var selectedFormat: FormatCapability? {
         registry.capability(id: selectedFormatID) ?? registry.writableFormats().first
@@ -50,6 +51,9 @@ final class AppModel: ObservableObject {
         self.pdfDPI = d.object(forKey: Keys.pdfDPI) as? Double ?? 144
         self.svgScale = d.object(forKey: Keys.svgScale) as? Double ?? 2.0
         self.keepFolderStructure = d.bool(forKey: Keys.keepFolders)
+        if let paths = d.stringArray(forKey: Keys.recentOutputs) {
+            self.recentOutputFolders = paths.map { URL(fileURLWithPath: $0) }
+        }
         if let path = d.string(forKey: Keys.output), FileManager.default.fileExists(atPath: path) {
             self.outputDirectory = URL(fileURLWithPath: path)
         }
@@ -66,6 +70,7 @@ final class AppModel: ObservableObject {
         static let svgScale = "conv3rt.svgScale"
         static let keepFolders = "conv3rt.keepFolders"
         static let output = "conv3rt.output"
+        static let recentOutputs = "conv3rt.recentOutputs"
     }
 
     private func persist() {
@@ -82,6 +87,11 @@ final class AppModel: ObservableObject {
 
     private func persistOutputFolder() {
         defaults.set(outputDirectory?.path, forKey: Keys.output)
+        guard let dir = outputDirectory else { return }
+        var recents = recentOutputFolders.filter { $0.path != dir.path }
+        recents.insert(dir, at: 0)
+        recentOutputFolders = Array(recents.prefix(5))
+        defaults.set(recentOutputFolders.map(\.path), forKey: Keys.recentOutputs)
     }
 
     // MARK: - Import
@@ -170,12 +180,20 @@ final class AppModel: ObservableObject {
     // MARK: - Planning
 
     func recomputePlans() {
-        guard let target = selectedFormat else { return }
         let settings = currentSettings
         for item in items {
             guard let info = item.info else { continue }
+            let target = item.formatOverrideID.flatMap { registry.capability(id: $0) } ?? selectedFormat
+            guard let target else { continue }
             item.plan = planner.plan(source: info, target: target, settings: settings)
         }
+    }
+
+    /// Sets or clears a per-file output-format override and replans that item.
+    func setFormatOverride(_ id: String?, for item: ImportItem) {
+        guard item.formatOverrideID != id else { return }
+        item.formatOverrideID = id
+        recomputePlans()
     }
 
     var currentSettings: ConversionSettings {
@@ -237,6 +255,8 @@ final class AppModel: ObservableObject {
             let failed = items.filter { if case .failed = $0.state { return true }; return false }.count
             progress = 1
             statusLine = "Finished: \(done) succeeded, \(failed) failed."
+            NSSound(named: "Glass")?.play()
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -268,5 +288,15 @@ final class AppModel: ObservableObject {
         if panel.runModal() == .OK, let url = panel.url {
             outputDirectory = url
         }
+    }
+
+    func useRecentOutputFolder(_ url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            recentOutputFolders.removeAll { $0.path == url.path }
+            defaults.set(recentOutputFolders.map(\.path), forKey: Keys.recentOutputs)
+            lastError = "That folder is no longer available."
+            return
+        }
+        outputDirectory = url
     }
 }
