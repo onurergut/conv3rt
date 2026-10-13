@@ -300,15 +300,15 @@ public enum FormatCatalog {
 
         {
             var c = FormatCapability(id: "dds", uti: "com.microsoft.dds", displayName: "DDS",
-                                     fileExtensions: ["dds"])
+                                     fileExtensions: ["dds"], provider: .builtin)
             c.bitDepths = [8]
             c.supportsAlpha = true
             c.supportsColorProfile = false
             c.supportsMetadata = false
-            c.hasLosslessPath = false
-            c.losslessConditions = [.notStructural]
-            c.limitations = ["DirectDraw Surface; commonly block-compressed (BCn), which is lossy."]
-            c.evidence = .unverified
+            c.hasLosslessPath = true
+            c.losslessConditions = [.exactSamples]
+            c.limitations = ["Writing uses uncompressed 24/32-bit DDS. Block-compressed (BCn/DXT) DDS can be read (via the system) but not written."]
+            c.evidence = .tested
             return c
         }(),
 

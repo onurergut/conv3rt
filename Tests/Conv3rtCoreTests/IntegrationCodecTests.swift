@@ -24,10 +24,24 @@ final class IntegrationCodecTests: XCTestCase {
     }
 
     func testBundledCodecsAreWritableTargets() {
-        for id in ["qoi", "pcx", "pfm"] {
+        for id in ["qoi", "pcx", "pfm", "dds"] {
             XCTAssertTrue(target(id).canWrite, "\(id) should be writable")
             XCTAssertTrue(target(id).canRead, "\(id) should be readable")
         }
+    }
+
+    func testPNGtoDDSRoundTripIsLossless() throws {
+        let dir = TempDir()
+        let src = try Fixtures.write(Fixtures.manyColors(), uti: "public.png", ext: "png",
+                                     directory: dir.url, name: "src")
+        let dds = try convert(src, to: "dds", lossless: false, in: dir.url)
+        let data = try Data(contentsOf: dds)
+        let decoded = try DDSCodec.decode(data)
+        XCTAssertEqual(decoded.width, 32)
+        XCTAssertEqual(decoded.height, 32)
+        let a = try Fixtures.rgbaBytes(of: src)
+        let b = try Fixtures.rgbaBytes(of: decoded)
+        XCTAssertEqual(a.bytes, b.bytes, "PNG→DDS must be sample-exact")
     }
 
     func testPNGtoQOIRoundTripIsLosslessThroughTheEngine() throws {

@@ -27,7 +27,7 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Canon TIF raw image | `com.canon.tif-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | com.apple.atx | `com.apple.atx` | yes | yes | — | — | — | — | — | imageIO | documented |
 | com.microsoft.cur | `com.microsoft.cur` | yes | — | — | — | — | — | — | imageIO | documented |
-| DDS | `com.microsoft.dds` | yes | yes | yes | — | — | — | — | imageIO | unverified |
+| DDS | `com.microsoft.dds` | yes | yes | yes | — | — | — | yes | builtin | tested |
 | DxO raw image | `com.dxo.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Epson raw image | `com.epson.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Fuji raw image | `com.fuji.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
@@ -46,14 +46,14 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Kodak raw image | `com.kodak.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | KTX textures | `org.khronos.ktx` | yes | yes | — | — | — | — | — | imageIO | documented |
 | Leaf raw image | `com.leafamerica.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| Leica raw image | `com.leica.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Leica raw image | `com.leica.rwl-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| Leica raw image | `com.leica.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Minolta raw image | `com.konicaminolta.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Multiple Picture Object image | `public.mpo-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Netpbm (PBM/PGM/PPM) | `public.pbm` | yes | yes | — | — | — | — | yes | imageIO | tested |
 | Nikon NRW raw image | `com.nikon.nrw-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| Nikon raw image | `com.nikon.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Nikon raw image | `com.nikon.nefx-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| Nikon raw image | `com.nikon.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus OR raw image | `com.olympus.or-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus raw image | `com.olympus.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus SR raw image | `com.olympus.sr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |

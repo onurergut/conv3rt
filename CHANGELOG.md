@@ -15,7 +15,10 @@
   profile preserved or the loss flagged).
 - UX: recent output folders, a completion cue, and a per-file output-format
   override.
-- `scripts/make-dmg.sh` for DMG packaging; CI workflow.
+- **DDS** (uncompressed) read/write codec; block-compressed DDS is readable
+  but not writable.
+- Saved **presets** (name + apply + delete) in the app.
+- `scripts/make-dmg.sh` for DMG packaging; CI now reports code coverage.
 - **Metadata writing**: WebP and JPEG XL now carry EXIF/GPS and XMP (plus ICC);
   IPTC is not written.
 - **Animated WebP** output (libwebp mux), preserving all frames and timing.

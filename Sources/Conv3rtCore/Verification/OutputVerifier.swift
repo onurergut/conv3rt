@@ -23,7 +23,15 @@ public struct OutputVerifier: Sendable {
         var frameCount = 1
         let kind = SourceProviderFactory.detectKind(url: url)
 
-        if kind == .qoi || kind == .pcx || kind == .pfm {
+        if expectedUTI == "com.microsoft.dds" {
+            // We author uncompressed DDS; verify it with our own decoder.
+            guard let data = try? Data(contentsOf: url),
+                  let image = try? DDSCodec.decode(data),
+                  image.width > 0, image.height > 0 else {
+                throw ConversionError.verificationFailed("The output DDS could not be decoded.")
+            }
+            actualUTI = expectedUTI
+        } else if kind == .qoi || kind == .pcx || kind == .pfm {
             // Our own codecs: Image I/O mis-types some of these (e.g. PFM as
             // pbm), so verify through the provider layer.
             guard let provider = SourceProviderFactory.make(url: url),

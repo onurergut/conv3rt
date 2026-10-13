@@ -195,7 +195,7 @@ public struct ConversionEngine: Sendable {
 
     /// Formats written by a bundled codec rather than Apple Image I/O.
     static func isCustomCodec(_ id: String) -> Bool {
-        ["webp", "jxl", "qoi", "pcx", "pfm"].contains(id)
+        ["webp", "jxl", "qoi", "pcx", "pfm", "dds"].contains(id)
     }
 
     /// Bundled-codec targets that can write an animation into a single file.
@@ -233,6 +233,8 @@ public struct ConversionEngine: Sendable {
             data = try PCXCodec.encode(prepared)
         case "pfm":
             data = try NetpbmCodec.encodePFM(prepared)
+        case "dds":
+            data = try DDSCodec.encode(prepared)
         default:
             throw ConversionError.encodeFailed("No encoder for \(target.displayName).")
         }
