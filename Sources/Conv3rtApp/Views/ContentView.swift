@@ -209,50 +209,64 @@ struct ContentView: View {
     private var fileList: some View {
         Table(model.items) {
             TableColumn("") { item in
-                Group {
-                    if let img = item.thumbnail {
-                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
-                    } else {
-                        Image(systemName: "photo").foregroundStyle(.tertiary)
+                ImportItemCell(item: item) { item in
+                    Group {
+                        if let img = item.thumbnail {
+                            Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
+                        } else {
+                            Image(systemName: "photo").foregroundStyle(.tertiary)
+                        }
                     }
+                    .frame(width: 40, height: 40)
                 }
-                .frame(width: 40, height: 40)
             }
             .width(48)
 
             TableColumn("Name") { item in
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(item.displayName).lineLimit(1)
-                    if let info = item.info {
-                        Text(info.detectedUTI.map { shortName($0) } ?? "—")
-                            .font(.caption2).foregroundStyle(.secondary)
+                ImportItemCell(item: item) { item in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(item.displayName).lineLimit(1)
+                        if let info = item.info {
+                            Text(info.detectedUTI.map { shortName($0) } ?? "—")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
 
             TableColumn("Dimensions") { item in
-                Text(item.info?.pixelDescription ?? "—").monospacedDigit()
+                ImportItemCell(item: item) { item in
+                    Text(item.info?.pixelDescription ?? "—").monospacedDigit()
+                }
             }
             .width(110)
 
             TableColumn("Size") { item in
-                Text(byteString(item.info?.fileSize ?? 0)).monospacedDigit()
+                ImportItemCell(item: item) { item in
+                    Text(byteString(item.info?.fileSize ?? 0)).monospacedDigit()
+                }
             }
             .width(80)
 
             TableColumn("Frames") { item in
-                let n = max(item.info?.frameCount ?? 1, item.info?.pageCount ?? 1)
-                Text(n > 1 ? "\(n)" : "—").monospacedDigit()
+                ImportItemCell(item: item) { item in
+                    let n = max(item.info?.frameCount ?? 1, item.info?.pageCount ?? 1)
+                    Text(n > 1 ? "\(n)" : "—").monospacedDigit()
+                }
             }
             .width(60)
 
             TableColumn("Format") { item in
-                formatOverrideCell(item)
+                ImportItemCell(item: item) { item in
+                    formatOverrideCell(item)
+                }
             }
             .width(150)
 
             TableColumn("Status") { item in
-                statusCell(item)
+                ImportItemCell(item: item) { item in
+                    statusCell(item)
+                }
             }
         }
         .accessibilityLabel("Files to convert")
@@ -374,4 +388,11 @@ struct ContentView: View {
         f.countStyle = .file
         return f.string(fromByteCount: size)
     }
+}
+
+private struct ImportItemCell<Content: View>: View {
+    @ObservedObject var item: ImportItem
+    @ViewBuilder var content: (ImportItem) -> Content
+
+    var body: some View { content(item) }
 }

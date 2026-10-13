@@ -95,6 +95,10 @@ targets.append(contentsOf: [
         dependencies: ["Conv3rtCore"]
     ),
     .testTarget(
+        name: "Conv3rtAppTests",
+        dependencies: ["Conv3rtApp"]
+    ),
+    .testTarget(
         name: "Conv3rtCoreTests",
         dependencies: ["Conv3rtCore"],
         swiftSettings: (hasJXL ? [.define("CONV3RT_JXL")] : [])

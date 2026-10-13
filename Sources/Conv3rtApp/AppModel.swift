@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import SwiftUI
+import Combine
 import Conv3rtCore
 
 /// The app's single source of truth, bound to the views. Runs on the main actor;
@@ -11,18 +12,25 @@ final class AppModel: ObservableObject {
     let registry = CapabilityRegistry.shared
     private let planner = ConversionPlanner()
     private let scanner = FolderScanner()
-    private let defaults = UserDefaults.standard
-    private let presetStore = PresetStore()
+    private let defaults: UserDefaults
+    private let presetStore: PresetStore
     private var runner = BatchRunner()
+    private var itemChanges: AnyCancellable?
 
-    @Published var items: [ImportItem] = []
+    @Published var items: [ImportItem] = [] {
+        didSet {
+            itemChanges = Publishers.MergeMany(items.map(\.objectWillChange)).sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+        }
+    }
     @Published var isRunning = false
     @Published var progress: Double = 0
     @Published var statusLine: String = "Add images to begin."
     @Published var lastError: String?
 
     // Persisted settings.
-    @Published var selectedFormatID: String { didSet { persist() } }
+    @Published var selectedFormatID: String { didSet { persist(); recomputePlans() } }
     @Published var mode: ConversionMode { didSet { persist(); recomputePlans() } }
     @Published var metadataPolicy: MetadataPolicy { didSet { persist(); recomputePlans() } }
     @Published var framePolicy: FramePolicy { didSet { persist(); recomputePlans() } }
@@ -42,8 +50,10 @@ final class AppModel: ObservableObject {
 
     // MARK: - Init / persistence
 
-    init() {
-        let d = UserDefaults.standard
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.presetStore = PresetStore(defaults: defaults)
+        let d = defaults
         self.selectedFormatID = d.string(forKey: Keys.format) ?? "png"
         self.mode = ConversionMode(rawValue: d.string(forKey: Keys.mode) ?? "") ?? .lossless
         self.metadataPolicy = MetadataPolicy(rawValue: d.string(forKey: Keys.metadata) ?? "") ?? .keep
@@ -147,12 +157,12 @@ final class AppModel: ObservableObject {
 
     func addFiles(_ urls: [URL], load: Bool = true) {
         let result = scanner.scan(urls: urls)
-        var added = 0
+        var additions: [ImportItem] = []
         for url in result.imageFiles where !items.contains(where: { $0.url == url }) {
-            let item = ImportItem(url: url)
-            items.append(item)
-            added += 1
+            additions.append(ImportItem(url: url))
         }
+        if !additions.isEmpty { items.append(contentsOf: additions) }
+        let added = additions.count
         if !result.skipped.isEmpty {
             statusLine = "Added \(added). Skipped \(result.skipped.count) unsupported file(s)."
         } else {
