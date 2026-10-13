@@ -19,6 +19,8 @@
   but not writable.
 - Saved **presets** (name + apply + delete) in the app.
 - `scripts/make-dmg.sh` for DMG packaging; CI now reports code coverage.
+- **AVIF writing** (lossy) via bundled libavif + libaom (optional build,
+  `scripts/build-avif.sh`); adds ~5 MB. ICC embedded; no lossless AVIF.
 - **Metadata writing**: WebP and JPEG XL now carry EXIF/GPS and XMP (plus ICC);
   IPTC is not written.
 - **Animated WebP** output (libwebp mux), preserving all frames and timing.

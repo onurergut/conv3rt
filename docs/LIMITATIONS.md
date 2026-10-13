@@ -5,14 +5,16 @@ faked in the UI.
 
 ## Format coverage
 
-- **AVIF cannot be written.** macOS Image I/O can decode it but not encode it,
-  and bundling an AV1 encoder would add tens of megabytes. Not an output target.
-- **WebP can be written** (bundled libwebp). Lossless uses `exact` mode and the
-  ICC profile is written; **EXIF/XMP are not yet written into WebP**, and
-  animated WebP output is not implemented.
+- **WebP can be written** (bundled libwebp). Lossless uses `exact` mode; ICC,
+  EXIF/GPS and XMP are written; animated sources become one animated WebP. IPTC
+  is not written.
 - **JPEG XL can be written only if you build libjxl** (`scripts/build-jxl.sh`).
-  Without it, JPEG XL is read-only. The ICC profile is embedded; EXIF/XMP are
-  not written, and animated JXL is not implemented.
+  Without it, JPEG XL is read-only. ICC, EXIF/GPS and XMP are written; IPTC and
+  animation are not.
+- **AVIF can be written only if you build libavif + libaom**
+  (`scripts/build-avif.sh`). It is **lossy only** (no lossless AVIF); the ICC
+  profile is embedded, but EXIF/XMP and animation are not written. The build
+  adds ~5 MB to the app.
 - **Radiance HDR, SGI, PICT are read-only** on macOS; not output targets.
 - **JPEG 2000 output is lossy.** Image I/O writes JP2 lossily by default
   (verified: sample 0 → 1), so it is not offered as a lossless target.

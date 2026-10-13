@@ -18,7 +18,7 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 |---|---|---|---|---|---|---|---|---|---|---|
 | Adobe raw image | `com.adobe.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | ASTC textures | `org.khronos.astc` | yes | yes | — | — | — | — | — | imageIO | documented |
-| AVIF | `public.avif` | yes | — | yes | yes | — | yes | — | imageIO | unverified |
+| AVIF | `public.avif` | yes | yes | yes | yes | — | yes | — | imageIO | verified |
 | BMP | `com.microsoft.bmp` | yes | yes | yes | — | — | — | yes | imageIO | tested |
 | Camera RAW | `public.camera-raw-image` | yes | — | — | — | — | yes | — | imageIO | unverified |
 | Canon CR2 raw image | `com.canon.cr2-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
@@ -35,8 +35,8 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Hasselblad 3FR raw image | `com.hasselblad.3fr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Hasselblad FFF raw image | `com.hasselblad.fff-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIC / HEIF | `public.heic` | yes | yes | yes | yes | — | yes | — | imageIO | verified |
-| HEIF Image | `public.heif` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIF Image | `public.avci` | yes | — | — | — | — | — | — | imageIO | documented |
+| HEIF Image | `public.heif` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIF Image Sequence | `public.heics` | yes | yes | — | — | — | — | — | imageIO | documented |
 | ICNS | `com.apple.icns` | yes | yes | yes | — | yes | — | yes | imageIO | verified |
 | ICO | `com.microsoft.ico` | yes | yes | yes | — | yes | — | yes | imageIO | verified |
@@ -52,8 +52,8 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Multiple Picture Object image | `public.mpo-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Netpbm (PBM/PGM/PPM) | `public.pbm` | yes | yes | — | — | — | — | yes | imageIO | tested |
 | Nikon NRW raw image | `com.nikon.nrw-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| Nikon raw image | `com.nikon.nefx-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Nikon raw image | `com.nikon.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| Nikon raw image | `com.nikon.nefx-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus OR raw image | `com.olympus.or-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus raw image | `com.olympus.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus SR raw image | `com.olympus.sr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |

@@ -47,7 +47,9 @@ why in English, suggests alternatives, and lets the user consciously switch mode
 | JPEG 2000 | **No** | Image I/O writes JP2 lossily by default (verified: sample 0 → 1). No lossless JP2 write path. |
 | OpenEXR | Yes | Compression method and channel types must be lossless; do not route through 8-bit. |
 | TGA, ICO, ICNS, Netpbm | Yes | Exact samples where representable. |
-| WebP / AVIF / JPEG XL | n/a | Not writable on macOS; not offered as targets. |
+| WebP | Yes (built) | libwebp `exact` mode keeps RGB under transparent pixels. |
+| JPEG XL | Yes (built) | Lossless JXL keeps exact samples and the ICC profile. |
+| AVIF | **No** | Lossy only; RGB→YUV, matrix, range and subsampling lose data. |
 
 ## Traps this project explicitly guards against
 

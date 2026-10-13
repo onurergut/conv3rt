@@ -26,7 +26,9 @@ lossless for everything" marketing.
   depth, alpha, color profile and structure — and it is **blocked**, never
   silently downgraded, when the target can't. Highest Quality is always labeled
   as potentially lossy.
-- **Read ≠ write.** macOS can decode WebP/AVIF/JPEG XL but not encode them.
+- **Read ≠ write.** macOS can decode WebP/AVIF/JPEG XL but not encode them;
+  conv3rt writes these with bundled codecs, and says honestly which formats it
+  can only read.
   conv3rt writes WebP (and JPEG XL, if built) and does **not** pretend the
   others are targets.
 - **Nothing happens behind your back.** Originals are never modified, outputs
@@ -39,10 +41,10 @@ lossless for everything" marketing.
 | | |
 |---|---|
 | **Read** | JPEG, PNG, TIFF, BMP, GIF, HEIC/HEIF, WebP, AVIF, JPEG XL, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF, and nearly all camera RAW (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, …) |
-| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, **WebP**, **JPEG XL**\*, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF |
-| **Read-only** | AVIF, Radiance HDR, SGI, PICT, camera RAW |
+| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, **WebP**, **JPEG XL**\*, **AVIF**\*, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF |
+| **Read-only** | Radiance HDR, SGI, PICT, camera RAW |
 
-<sub>\* JPEG XL writing is optional at build time (`scripts/build-jxl.sh`).</sub>
+<sub>\* JPEG XL and AVIF writing are optional at build time (`scripts/build-jxl.sh`, `scripts/build-avif.sh`).</sub>
 
 The full, generated matrix — read/write, alpha, animation, multipage, metadata
 and lossless conditions per format — lives in
@@ -120,7 +122,8 @@ docs/                  format matrix and user-facing notes
 
 ## Known limitations
 
-- **AVIF** can't be written (would need a large AV1 encoder); it is read-only.
+- **AVIF** is written **lossily** only (optional build with libavif + libaom);
+  there is no lossless AVIF, and its output carries no EXIF/XMP.
 - **RAW / PSD / SVG / PDF** are exported as **flattened raster images** — their
   original structure is not preserved.
 - WebP/JPEG XL output doesn't carry EXIF/XMP yet (ICC is written); animated
