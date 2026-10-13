@@ -66,13 +66,13 @@ final class WebPTests: XCTestCase {
         XCTAssertEqual(a.bytes, b.bytes, "The whole image must round-trip exactly")
     }
 
-    func testWebPMetadataIsLimitedAndReported() throws {
+    func testWebPMetadataIsReportedAsPreserved() throws {
         let dir = TempDir()
         let src = try Fixtures.pngWithMetadata(directory: dir.url)
         let info = try inspector.inspect(url: src)
         let plan = planner.plan(source: info, target: target("webp"),
                                 settings: ConversionSettings(mode: .highestQuality, metadataPolicy: .keep))
-        XCTAssertTrue(plan.changes.contains { $0.code == "meta.limited" },
-                      "WebP output should warn that metadata is not stored")
+        XCTAssertTrue(plan.changes.contains { $0.code == "meta.keep" },
+                      "WebP now writes EXIF/GPS/XMP, so metadata is reported as preserved")
     }
 }

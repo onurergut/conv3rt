@@ -16,6 +16,8 @@
 - UX: recent output folders, a completion cue, and a per-file output-format
   override.
 - `scripts/make-dmg.sh` for DMG packaging; CI workflow.
+- **Metadata writing**: WebP and JPEG XL now carry EXIF/GPS and XMP (plus ICC);
+  IPTC is not written.
 
 ## 0.4.0
 

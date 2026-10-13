@@ -35,25 +35,25 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Hasselblad 3FR raw image | `com.hasselblad.3fr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Hasselblad FFF raw image | `com.hasselblad.fff-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIC / HEIF | `public.heic` | yes | yes | yes | yes | — | yes | — | imageIO | verified |
-| HEIF Image | `public.avci` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIF Image | `public.heif` | yes | — | — | — | — | — | — | imageIO | documented |
+| HEIF Image | `public.avci` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIF Image Sequence | `public.heics` | yes | yes | — | — | — | — | — | imageIO | documented |
 | ICNS | `com.apple.icns` | yes | yes | yes | — | yes | — | yes | imageIO | verified |
 | ICO | `com.microsoft.ico` | yes | yes | yes | — | yes | — | yes | imageIO | verified |
 | JPEG | `public.jpeg` | yes | yes | — | — | — | yes | — | imageIO | documented |
 | JPEG 2000 | `public.jpeg-2000` | yes | yes | yes | — | — | yes | — | imageIO | tested |
-| JPEG XL | `public.jpeg-xl` | yes | yes | yes | — | — | — | yes | imageIO | verified |
+| JPEG XL | `public.jpeg-xl` | yes | yes | yes | — | — | yes | yes | imageIO | verified |
 | Kodak raw image | `com.kodak.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | KTX textures | `org.khronos.ktx` | yes | yes | — | — | — | — | — | imageIO | documented |
 | Leaf raw image | `com.leafamerica.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| Leica raw image | `com.leica.rwl-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Leica raw image | `com.leica.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| Leica raw image | `com.leica.rwl-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Minolta raw image | `com.konicaminolta.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Multiple Picture Object image | `public.mpo-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Netpbm (PBM/PGM/PPM) | `public.pbm` | yes | yes | — | — | — | — | yes | imageIO | tested |
 | Nikon NRW raw image | `com.nikon.nrw-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| Nikon raw image | `com.nikon.nefx-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Nikon raw image | `com.nikon.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| Nikon raw image | `com.nikon.nefx-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus OR raw image | `com.olympus.or-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus raw image | `com.olympus.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus SR raw image | `com.olympus.sr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
@@ -82,4 +82,4 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | SVG (vector) | `public.svg-image` | yes | — | yes | — | — | — | — | bundled | verified |
 | TGA | `com.truevision.tga-image` | yes | yes | yes | — | — | — | yes | imageIO | tested |
 | TIFF | `public.tiff` | yes | yes | yes | — | yes | yes | yes | imageIO | tested |
-| WebP | `org.webmproject.webp` | yes | yes | yes | — | — | — | yes | imageIO | verified |
+| WebP | `org.webmproject.webp` | yes | yes | yes | — | — | yes | yes | imageIO | verified |
