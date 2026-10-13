@@ -110,16 +110,16 @@ final class ConversionTests: XCTestCase {
 
     // MARK: - Honest gap: WebP cannot be written natively
 
-    func testWebPTargetIsBlockedBecauseMacOSCannotWriteIt() throws {
+    func testWebPTargetIsWritableViaBundledCodec() throws {
         let dir = TempDir()
         let src = try Fixtures.write(Fixtures.rgbaSample(), uti: "public.png", ext: "png",
                                      directory: dir.url, name: "src")
         let info = try inspector.inspect(url: src)
         let webp = target("webp")
-        XCTAssertFalse(webp.canWrite, "Documenting real macOS behavior: WebP is read-only via Image I/O")
+        XCTAssertTrue(webp.canWrite, "conv3rt ships a WebP encoder, so WebP is a writable target")
         let plan = planner.plan(source: info, target: webp,
                                 settings: ConversionSettings(mode: .lossless))
-        XCTAssertEqual(plan.status, .blocked)
+        XCTAssertTrue(plan.isConvertible)
     }
 
     // MARK: - Naming and safety

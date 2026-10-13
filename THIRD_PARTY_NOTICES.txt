@@ -1,31 +1,38 @@
 conv3rt — Third-Party Notices
 =============================
 
-This build currently links only against Apple system frameworks:
+Apple system frameworks
+-----------------------
+conv3rt links these macOS system frameworks. They are part of macOS and are not
+redistributed with conv3rt:
 
-  - Foundation, AppKit, SwiftUI, CoreGraphics, ImageIO, CoreImage, PDFKit,
-    UniformTypeIdentifiers, CoreText
+  Foundation, AppKit, SwiftUI, CoreGraphics, ImageIO, CoreImage, PDFKit,
+  UniformTypeIdentifiers, CoreText
 
-These are part of macOS and are not redistributed with conv3rt. No third-party
-source code is compiled into this build.
+Used under the macOS SDK license agreement.
 
-Apple system frameworks are used under the terms of the macOS SDK license
-agreement.
-
--------------------------------------------------------------------------------
 Bundled third-party codecs
--------------------------------------------------------------------------------
-None yet. WebP/AVIF/JPEG XL are READ-ONLY with the native Image I/O back end on
-this macOS version. Writing those formats is not implemented, so those formats
-are not offered as output targets and no third-party codec is bundled.
+--------------------------
 
-If a bundled codec is added later, its name, pinned version, source URL,
-license and the exact files copied into the bundle will be listed here, and the
-license text will be placed in Contents/Resources/.
+1. libwebp
+   Version:   1.4.0 (pinned)
+   Source:    https://github.com/webmproject/libwebp (tag v1.4.0)
+   Files:     ThirdParty/libwebp-c/ (a curated subset of libwebp/src:
+              enc, dec, dsp, utils, webp, mux, plus sharpyuv)
+   Purpose:   WebP encoding (Image I/O on macOS cannot write WebP).
+   License:   BSD 3-Clause — full text in ThirdParty/libwebp-c/COPYING, also
+              shipped at Contents/Resources/licenses/libwebp-COPYING.txt.
+   Patents:   Additional patent grant in ThirdParty/libwebp-c/PATENTS, shipped
+              at Contents/Resources/licenses/libwebp-PATENTS.txt.
+   Notes:     conv3rt calls libwebp's WebPConfig/WebPEncode advanced API with
+              `exact = 1` for lossless, and uses the mux API to write the ICCP
+              color-profile chunk. No modifications were made to libwebp sources;
+              conv3rt adds only a thin shim (conv3rt_webp.c / conv3rt_webp.h).
 
--------------------------------------------------------------------------------
+No other third-party source code is compiled into this build.
+
 Test fixtures
--------------------------------------------------------------------------------
+-------------
 All test images are generated programmatically at runtime (see
 Tests/Conv3rtCoreTests/Fixtures.swift). No third-party test images are stored in
 this repository, so there are no external fixture licenses to track.

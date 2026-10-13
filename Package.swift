@@ -10,7 +10,19 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "CWebP",
+            path: "ThirdParty/libwebp-c",
+            publicHeadersPath: "src/webp",
+            cSettings: [
+                .headerSearchPath("."),
+                .headerSearchPath("src"),
+                .headerSearchPath("sharpyuv"),
+                .define("WEBP_USE_THREAD", to: "0"),
+            ]
+        ),
+        .target(
             name: "Conv3rtCore",
+            dependencies: ["CWebP"],
             swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
         ),
         .executableTarget(

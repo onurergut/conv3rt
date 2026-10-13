@@ -162,6 +162,54 @@ enum Fixtures {
         return url
     }
 
+    /// A non-premultiplied RGBA CGImage (what a PNG decodes to). Lets transparent
+    /// pixels carry real RGB values, which is exactly what WebP exact mode must
+    /// preserve.
+    static func nonPremultiplied(rawRGBA: [UInt8], width: Int, height: Int) -> CGImage {
+        let data = Data(rawRGBA)
+        let provider = CGDataProvider(data: data as CFData)!
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+                       bytesPerRow: width * 4, space: space,
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: false,
+                       intent: .defaultIntent)!
+    }
+
+    /// A 4×1 image: opaque, semi-transparent, fully transparent (nonzero RGB),
+    /// and opaque — stored non-premultiplied so the transparent RGB is real.
+    static func transparentRGBSample() -> CGImage {
+        var bytes = [UInt8](repeating: 0, count: 4 * 4)
+        bytes[0...3] = [200, 40, 40, 255]   // opaque red
+        bytes[4...7] = [40, 200, 40, 128]   // semi green
+        bytes[8...11] = [30, 30, 30, 0]      // fully transparent, RGB (30,30,30)
+        bytes[12...15] = [40, 40, 200, 255]  // opaque blue
+        return nonPremultiplied(rawRGBA: bytes, width: 4, height: 1)
+    }
+
+    /// Reads raw 8-bit non-premultiplied RGBA from a file, preserving transparent
+    /// pixel RGB when the decoder stores it that way.
+    static func rawRGBA(of url: URL) throws -> (bytes: [UInt8], width: Int, height: Int, alphaInfo: UInt32) {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw NSError(domain: "fixtures", code: 30)
+        }
+        let width = image.width, height = image.height
+        if image.bitsPerComponent == 8, let cf = image.dataProvider?.data,
+           let space = image.colorSpace, space.model == .rgb {
+            let ptr = CFDataGetBytePtr(cf)!
+            let stride = image.bytesPerRow
+            var out = [UInt8](repeating: 0, count: width * height * 4)
+            for y in 0..<height {
+                for i in 0..<(width * 4) { out[y * width * 4 + i] = ptr[y * stride + i] }
+            }
+            return (out, width, height, image.alphaInfo.rawValue)
+        }
+        // Fallback via CGContext (premultiplied).
+        let r = try rgbaBytes(of: image)
+        return (r.bytes, r.width, r.height, image.alphaInfo.rawValue)
+    }
+
     /// A PNG carrying EXIF + GPS metadata, for metadata-policy tests.
     static func pngWithMetadata(directory: URL) throws -> URL {
         let props: [CFString: Any] = [

@@ -73,6 +73,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
                 // Provided by conv3rt itself (e.g. SVG rasterization).
                 c.canRead = true
             }
+            // WebP is read by Image I/O but written by the bundled libwebp; its
+            // write capability therefore follows the codec's availability.
+            if c.id == "webp" {
+                c.canWrite = WebPEncoder.isAvailable
+            }
             result.append(c)
             seenUTIs.insert(c.uti)
         }

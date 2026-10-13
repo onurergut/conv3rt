@@ -5,9 +5,12 @@ faked in the UI.
 
 ## Format coverage
 
-- **WebP, AVIF, JPEG XL cannot be written.** macOS Image I/O can decode them but
-  not encode them, and no bundled encoder is shipped yet. They do not appear as
+- **AVIF and JPEG XL cannot be written.** macOS Image I/O can decode them but not
+  encode them, and no bundled encoder is shipped for them. They do not appear as
   output targets. See [`CODECS.md`](CODECS.md).
+- **WebP can be written** (bundled libwebp). Lossless uses `exact` mode and the
+  ICC profile is written; **EXIF/XMP are not yet written into WebP**, and
+  animated WebP output is not implemented.
 - **Radiance HDR, SGI, PICT are read-only** on macOS; not output targets.
 - **PFM and PAM/PGM/PPM** beyond the native PBM UTI are not guaranteed.
 - **EPS/PS/AI** and medical/scientific formats are not supported (they need

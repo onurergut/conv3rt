@@ -131,6 +131,15 @@ public struct ConversionEngine: Sendable {
                               target: FormatCapability, settings: ConversionSettings,
                               isCancelled: @escaping () -> Bool,
                               progress: (@Sendable (Double) -> Void)?) throws {
+        if target.id == "webp" {
+            guard indices.count == 1 else {
+                throw ConversionError.encodeFailed("Animated WebP output is not supported.")
+            }
+            try encodeWebPOne(provider: provider, index: indices[0], to: url,
+                              target: target, settings: settings)
+            progress?(1)
+            return
+        }
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, target.uti as CFString,
                                                          indices.count, nil) else {
             throw ConversionError.encodeFailed("The encoder could not be created for \(target.displayName).")
@@ -158,6 +167,10 @@ public struct ConversionEngine: Sendable {
 
     private func encodeSingleFrame(provider: any SourceFrameProvider, index: Int, to url: URL,
                                    target: FormatCapability, settings: ConversionSettings) throws {
+        if target.id == "webp" {
+            try encodeWebPOne(provider: provider, index: index, to: url, target: target, settings: settings)
+            return
+        }
         guard let image = provider.image(at: index) else {
             throw ConversionError.cannotDecodeFrame(index)
         }
@@ -172,6 +185,19 @@ public struct ConversionEngine: Sendable {
         guard CGImageDestinationFinalize(dest) else {
             throw ConversionError.encodeFailed("The encoder did not finalize the output.")
         }
+    }
+
+    /// Encodes one frame as a single-frame WebP via the bundled libwebp.
+    private func encodeWebPOne(provider: any SourceFrameProvider, index: Int, to url: URL,
+                               target: FormatCapability, settings: ConversionSettings) throws {
+        guard let image = provider.image(at: index) else {
+            throw ConversionError.cannotDecodeFrame(index)
+        }
+        let prepared = prepare(image, target: target, settings: settings)
+        let data = try WebPEncoder.encode(image: prepared,
+                                          lossless: settings.mode == .lossless,
+                                          quality: quality)
+        try data.write(to: url, options: .atomic)
     }
 
     // MARK: - Properties

@@ -34,12 +34,14 @@ Highlights on macOS 15:
 | Capability | Examples |
 |---|---|
 | **Read** | JPEG, PNG, TIFF, BMP, GIF, HEIC/HEIF, WebP, AVIF, JPEG XL, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF, nearly all camera RAW families (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, …) |
-| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF |
-| **Read-only** | WebP, AVIF, JPEG XL, Radiance HDR, SGI, PICT, all camera RAW |
+| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, **WebP**, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF |
+| **Read-only** | AVIF, JPEG XL, Radiance HDR, SGI, PICT, all camera RAW |
 
-**Read-only formats are not offered as output targets.** macOS can decode WebP,
-AVIF and JPEG XL but cannot encode them with Image I/O; conv3rt does not pretend
-otherwise. See [`docs/CODECS.md`](docs/CODECS.md) for the plan to add encoders.
+WebP is **read** by macOS Image I/O and **written** by the bundled libwebp
+(BSD-3). It is the only bundled third-party codec; others (AVIF, JPEG XL) are
+**not** output targets because macOS cannot encode them and no encoder is
+bundled. conv3rt does not pretend otherwise. See
+[`docs/CODECS.md`](docs/CODECS.md).
 
 ## The Lossless contract
 
@@ -80,7 +82,8 @@ entirely on-device. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md). The short version:
 
-- WebP / AVIF / JPEG XL **cannot be written** (no bundled encoder yet).
+- AVIF / JPEG XL **cannot be written** (no bundled encoder yet); WebP can.
+- WebP output does not yet carry EXIF/XMP (ICC is written).
 - Finder Quick Action extension is not implemented; **Open With** works.
 - RAW, PSD, SVG and PDF are **exported as flattened raster images**; their
   original structure is not preserved.

@@ -27,6 +27,10 @@ mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$BIN" "$BUNDLE/Contents/MacOS/$APP_NAME"
 sed "s/0\.1\.0/$VERSION/g" "$ROOT/Resources/Info.plist" > "$BUNDLE/Contents/Info.plist"
 cp "$ROOT/THIRD_PARTY_NOTICES.txt" "$BUNDLE/Contents/Resources/" 2>/dev/null || true
+# Bundled third-party license texts (required for redistribution).
+mkdir -p "$BUNDLE/Contents/Resources/licenses"
+cp "$ROOT/ThirdParty/libwebp-c/COPYING" "$BUNDLE/Contents/Resources/licenses/libwebp-COPYING.txt" 2>/dev/null || true
+cp "$ROOT/ThirdParty/libwebp-c/PATENTS" "$BUNDLE/Contents/Resources/licenses/libwebp-PATENTS.txt" 2>/dev/null || true
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
 echo "==> Signing..."
