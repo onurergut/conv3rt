@@ -111,3 +111,96 @@ int conv3rt_webp_encode_rgba(const uint8_t *rgba, int width, int height, int str
     *out_size = writer.size;
     return 0;
 }
+
+int conv3rt_webp_encode_anim_rgba(const uint8_t *rgba_frames, int width, int height,
+                                  int stride, const int *durations_ms, int frame_count,
+                                  int lossless, float quality, int loop_count,
+                                  const uint8_t *icc, size_t icc_size,
+                                  const uint8_t *exif, size_t exif_size,
+                                  const uint8_t *xmp, size_t xmp_size,
+                                  uint8_t **out, size_t *out_size) {
+    if (rgba_frames == NULL || durations_ms == NULL || frame_count <= 0
+        || out == NULL || out_size == NULL || width <= 0 || height <= 0
+        || stride != width * 4) {
+        return 1;
+    }
+
+    WebPAnimEncoderOptions opts;
+    if (!WebPAnimEncoderOptionsInit(&opts)) return 1;
+    opts.anim_params.loop_count = loop_count;
+    opts.minimize_size = 0;
+    opts.allow_mixed = 0;
+
+    WebPAnimEncoder *enc = WebPAnimEncoderNew(width, height, &opts);
+    if (enc == NULL) return 1;
+
+    const size_t frame_bytes = (size_t)height * (size_t)stride;
+    int rc = 0;
+    int timestamp_ms = 0;
+    for (int i = 0; i < frame_count; i++) {
+        WebPConfig config;
+        if (!WebPConfigInit(&config)) { rc = 2; break; }
+        config.lossless = lossless ? 1 : 0;
+        config.exact = lossless ? 1 : 0;      // keep RGB under transparent pixels
+        config.quality = lossless ? 100.f : quality;
+        config.alpha_quality = 100;
+        config.method = 6;
+        if (!WebPValidateConfig(&config)) { rc = 2; break; }
+
+        WebPPicture pic;
+        if (!WebPPictureInit(&pic)) { rc = 2; break; }
+        pic.use_argb = 1;
+        pic.width = width;
+        pic.height = height;
+        if (!WebPPictureAlloc(&pic)) { WebPPictureFree(&pic); rc = 2; break; }
+        if (!WebPPictureImportRGBA(&pic, rgba_frames + (size_t)i * frame_bytes, stride)) {
+            WebPPictureFree(&pic);
+            rc = 2;
+            break;
+        }
+        if (!WebPAnimEncoderAdd(enc, &pic, timestamp_ms, &config)) {
+            WebPPictureFree(&pic);
+            rc = 3;
+            break;
+        }
+        WebPPictureFree(&pic);
+        if (durations_ms[i] > 0) timestamp_ms += durations_ms[i];
+    }
+
+    // Flush with a null frame so the last frame's duration is honored.
+    if (rc == 0 && !WebPAnimEncoderAdd(enc, NULL, timestamp_ms, NULL)) rc = 3;
+
+    // Attach metadata chunks before assembling (no-op for empty payloads).
+    if (rc == 0 && icc != NULL && icc_size > 0) {
+        WebPData d = { icc, icc_size };
+        if (WebPAnimEncoderSetChunk(enc, "ICCP", &d, 1) != WEBP_MUX_OK) rc = 4;
+    }
+    if (rc == 0 && exif != NULL && exif_size > 0) {
+        WebPData d = { exif, exif_size };
+        if (WebPAnimEncoderSetChunk(enc, "EXIF", &d, 1) != WEBP_MUX_OK) rc = 4;
+    }
+    if (rc == 0 && xmp != NULL && xmp_size > 0) {
+        WebPData d = { xmp, xmp_size };
+        if (WebPAnimEncoderSetChunk(enc, "XMP ", &d, 1) != WEBP_MUX_OK) rc = 4;
+    }
+
+    WebPData assembled = { NULL, 0 };
+    if (rc == 0) {
+        if (!WebPAnimEncoderAssemble(enc, &assembled) || assembled.bytes == NULL) {
+            rc = 3;
+        }
+    }
+    if (rc == 0) {
+        uint8_t *buf = (uint8_t *)malloc(assembled.size);
+        if (buf == NULL) {
+            rc = 5;
+        } else {
+            memcpy(buf, assembled.bytes, assembled.size);
+            *out = buf;
+            *out_size = assembled.size;
+        }
+    }
+    WebPDataClear(&assembled);
+    WebPAnimEncoderDelete(enc);
+    return rc;
+}

@@ -133,6 +133,11 @@ public struct ConversionEngine: Sendable {
                               isCancelled: @escaping () -> Bool,
                               progress: (@Sendable (Double) -> Void)?) throws {
         if Self.isCustomCodec(target.id) {
+            if indices.count > 1, Self.supportsAnimatedWrite(target.id) {
+                try encodeCustomAnimated(provider: provider, indices: indices, to: url,
+                                         target: target, settings: settings, progress: progress)
+                return
+            }
             guard indices.count == 1 else {
                 throw ConversionError.encodeFailed("Animated \(target.displayName) output is not supported.")
             }
@@ -193,6 +198,14 @@ public struct ConversionEngine: Sendable {
         ["webp", "jxl", "qoi", "pcx", "pfm"].contains(id)
     }
 
+    /// Bundled-codec targets that can write an animation into a single file.
+    /// JPEG XL's libjxl can encode animation, but macOS Image I/O cannot read
+    /// animated JPEG XL back (it reports a single frame), so the output would
+    /// fail verification — JPEG XL animation is therefore not offered here.
+    static func supportsAnimatedWrite(_ id: String) -> Bool {
+        id == "webp"
+    }
+
     /// Encodes one frame as a single-frame WebP, JPEG XL, QOI, PCX or PFM.
     private func encodeCustomOne(provider: any SourceFrameProvider, index: Int, to url: URL,
                                  target: FormatCapability, settings: ConversionSettings) throws {
@@ -224,6 +237,66 @@ public struct ConversionEngine: Sendable {
             throw ConversionError.encodeFailed("No encoder for \(target.displayName).")
         }
         try data.write(to: url, options: .atomic)
+    }
+
+    /// Encodes all `indices` as one animated file with a bundled codec.
+    private func encodeCustomAnimated(provider: any SourceFrameProvider, indices: [Int], to url: URL,
+                                      target: FormatCapability, settings: ConversionSettings,
+                                      progress: (@Sendable (Double) -> Void)?) throws {
+        var frames: [(image: CGImage, duration: Double)] = []
+        frames.reserveCapacity(indices.count)
+        for (n, idx) in indices.enumerated() {
+            guard let image = provider.image(at: idx) else {
+                throw ConversionError.cannotDecodeFrame(idx)
+            }
+            let prepared = prepare(image, target: target, settings: settings)
+            frames.append((prepared, frameDuration(provider: provider, index: idx)))
+            progress?(Double(n + 1) / Double(max(indices.count, 1)))
+        }
+
+        let lossless = settings.mode == .lossless
+        let (exif, xmp) = customMetadata(provider: provider, settings: settings)
+        let loop = loopCount(provider: provider)
+
+        let data: Data
+        switch target.id {
+        case "webp":
+            data = try WebPEncoder.encodeAnimated(frames: frames, lossless: lossless,
+                                                  quality: quality, loopCount: loop,
+                                                  exif: exif, xmp: xmp)
+        default:
+            throw ConversionError.encodeFailed("Animated \(target.displayName) output is not supported.")
+        }
+        try data.write(to: url, options: .atomic)
+    }
+
+    /// Per-frame display time in seconds, from the GIF or WebP delay dictionary,
+    /// falling back to 0.1 s when the frame carries no timing.
+    private func frameDuration(provider: any SourceFrameProvider, index: Int) -> Double {
+        let props = provider.properties(at: index)
+        if let gif = props[kCGImagePropertyGIFDictionary] as? [CFString: Any],
+           let d = (gif[kCGImagePropertyGIFDelayTime] as? NSNumber)?.doubleValue, d > 0 {
+            return d
+        }
+        if let webp = props[kCGImagePropertyWebPDictionary] as? [CFString: Any],
+           let d = (webp[kCGImagePropertyWebPDelayTime] as? NSNumber)?.doubleValue, d > 0 {
+            return d
+        }
+        return 0.1
+    }
+
+    /// Animation loop count from the source, or 0 (repeat forever) when absent.
+    private func loopCount(provider: any SourceFrameProvider) -> Int {
+        let props = provider.properties(at: 0)
+        if let gif = props[kCGImagePropertyGIFDictionary] as? [CFString: Any],
+           let loop = (gif[kCGImagePropertyGIFLoopCount] as? NSNumber)?.intValue {
+            return loop
+        }
+        if let webp = props[kCGImagePropertyWebPDictionary] as? [CFString: Any],
+           let loop = (webp[kCGImagePropertyWebPLoopCount] as? NSNumber)?.intValue {
+            return loop
+        }
+        return 0
     }
 
     /// Metadata blobs (raw EXIF + XMP packet) to embed in a custom-codec output,

@@ -108,7 +108,7 @@ public enum FormatCatalog {
                                      fileExtensions: ["webp"], provider: .imageIO)
             c.bitDepths = [8]
             c.supportsAlpha = true
-            c.supportsAnimation = false  // writing animated WebP is not implemented
+            c.supportsAnimation = true   // animated WebP via bundled libwebp mux
             c.supportsColorProfile = true
             c.supportsMetadata = true
             c.hasLosslessPath = true   // via bundled libwebp exact mode.
@@ -116,7 +116,7 @@ public enum FormatCatalog {
             c.limitations = ["Native macOS reads WebP but cannot write it; conv3rt writes WebP with the bundled libwebp.",
                              "Lossless mode uses libwebp exact mode to preserve RGB under fully transparent pixels.",
                              "ICC (ICCP), EXIF/GPS (EXIF chunk) and XMP (XMP chunk) are written; IPTC is not.",
-                             "Animated WebP output is not implemented."]
+                             "Animated sources are written as a single animated WebP with per-frame timing."]
             c.evidence = .verified
             return c
         }(),

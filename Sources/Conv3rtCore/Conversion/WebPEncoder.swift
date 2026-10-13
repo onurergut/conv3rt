@@ -58,6 +58,78 @@ public enum WebPEncoder {
         defer { free(out) }
         return Data(bytes: out, count: outSize)
     }
+
+    /// Encodes several frames as one animated WebP via libwebp's mux animation
+    /// encoder. All frames must share one pixel size. `duration` is in seconds.
+    /// Lossless encodes use libwebp's `exact` mode so the RGB values under fully
+    /// transparent pixels are preserved, matching the single-frame path.
+    ///
+    /// - Parameter lossless: true for a lossless (exact) encode.
+    /// - Parameter quality: 0…1, used only for lossy encodes.
+    /// - Parameter loopCount: number of animation loops; 0 repeats forever.
+    public static func encodeAnimated(frames: [(image: CGImage, duration: Double)],
+                                      lossless: Bool, quality: Double, loopCount: Int,
+                                      exif: [UInt8]? = nil, xmp: [UInt8]? = nil) throws -> Data {
+        guard let first = frames.first else {
+            throw ConversionError.encodeFailed("Animated WebP needs at least one frame.")
+        }
+        let firstBuffer = try RGBABuffer.tightlyPacked(from: first.image)
+        let width = firstBuffer.width, height = firstBuffer.height
+
+        // Frames are laid back to back in one buffer so a single pointer reaches
+        // all of them; the encoder indexes by height * stride.
+        var blob = firstBuffer.bytes
+        blob.reserveCapacity(width * height * 4 * frames.count)
+        var durationsMs: [Int32] = [Self.millis(first.duration)]
+        durationsMs.reserveCapacity(frames.count)
+        for f in frames.dropFirst() {
+            let buffer = try RGBABuffer.tightlyPacked(from: f.image)
+            guard buffer.width == width, buffer.height == height else {
+                throw ConversionError.encodeFailed("Animated WebP frames must share one size.")
+            }
+            blob.append(contentsOf: buffer.bytes)
+            durationsMs.append(Self.millis(f.duration))
+        }
+
+        let icc: [UInt8] = first.image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? []
+
+        var out: UnsafeMutablePointer<UInt8>?
+        var outSize = 0
+        func withOpt<T>(_ a: [UInt8]?, _ body: (UnsafePointer<UInt8>?, Int) -> T) -> T {
+            guard let a else { return body(nil, 0) }
+            return a.withUnsafeBufferPointer { body($0.baseAddress, $0.count) }
+        }
+
+        let rc: Int32 = blob.withUnsafeBufferPointer { src in
+            durationsMs.withUnsafeBufferPointer { durs in
+                withOpt(icc.isEmpty ? nil : icc) { iccPtr, iccLen in
+                    withOpt(exif) { exifPtr, exifLen in
+                        withOpt(xmp) { xmpPtr, xmpLen in
+                            conv3rt_webp_encode_anim_rgba(
+                                src.baseAddress, Int32(width), Int32(height), Int32(width * 4),
+                                durs.baseAddress, Int32(frames.count),
+                                lossless ? 1 : 0, Float(max(0, min(quality, 1)) * 100),
+                                Int32(loopCount),
+                                iccPtr, iccLen, exifPtr, exifLen, xmpPtr, xmpLen,
+                                &out, &outSize)
+                        }
+                    }
+                }
+            }
+        }
+
+        guard rc == 0, let out else {
+            throw ConversionError.encodeFailed("libwebp failed (code \(rc)).")
+        }
+        defer { free(out) }
+        return Data(bytes: out, count: outSize)
+    }
+
+    /// Seconds → whole milliseconds, clamped to a non-negative `int`.
+    private static func millis(_ seconds: Double) -> Int32 {
+        let ms = (seconds * 1000).rounded()
+        return Int32(max(0, min(ms, Double(Int32.max))))
+    }
 }
 
 /// Extracts 8-bit non-premultiplied RGBA bytes from a `CGImage`, preserving the

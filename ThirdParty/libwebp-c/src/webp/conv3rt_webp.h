@@ -26,6 +26,22 @@ int conv3rt_webp_encode_rgba(const uint8_t *rgba, int width, int height, int str
                              const uint8_t *xmp, size_t xmp_size,
                              uint8_t **out, size_t *out_size);
 
+// Encodes an animated WebP from several 8-bit non-premultiplied RGBA frames.
+// `rgba_frames` points to `frame_count` tightly packed frames laid back to back,
+// each `height * stride` bytes (stride must be width * 4). `durations_ms[i]` is
+// the display time of frame i in milliseconds. All frames must share one size.
+// `loop_count` is the number of animation loops (0 = infinite).
+// Encoding is lossless+exact when `lossless != 0`, else lossy at `quality`
+// (0..100). The ICCP/EXIF/XMP chunks are attached when their payloads are given.
+// On success returns 0 and sets *out to a malloc'd buffer (free with free()).
+int conv3rt_webp_encode_anim_rgba(const uint8_t *rgba_frames, int width, int height,
+                                  int stride, const int *durations_ms, int frame_count,
+                                  int lossless, float quality, int loop_count,
+                                  const uint8_t *icc, size_t icc_size,
+                                  const uint8_t *exif, size_t exif_size,
+                                  const uint8_t *xmp, size_t xmp_size,
+                                  uint8_t **out, size_t *out_size);
+
 #ifdef __cplusplus
 }
 #endif

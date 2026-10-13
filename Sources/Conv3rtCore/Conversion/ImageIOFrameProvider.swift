@@ -15,12 +15,16 @@ public struct ImageIOFrameProvider: SourceFrameProvider {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               CGImageSourceGetCount(source) > 0 else { return nil }
         self.source = source
-        self.frameCount = CGImageSourceGetCount(source)
+        let count = CGImageSourceGetCount(source)
+        self.frameCount = count
         let uti = CGImageSourceGetType(source) as String? ?? ""
+        // GIF and HEICS are animated by type; a multi-frame WebP is an animated
+        // WebP (a multi-frame WebP always carries animation timing).
         let animated = UTTypeBridge.conformance(uti, toIdentifier: "com.compuserve.gif")
             || UTTypeBridge.conformance(uti, toIdentifier: "public.heics")
+            || (count > 1 && UTTypeBridge.conformance(uti, toIdentifier: "org.webmproject.webp"))
         self.isAnimated = animated
-        self.unitName = animated ? "frame" : (CGImageSourceGetCount(source) > 1 ? "page" : "frame")
+        self.unitName = animated ? "frame" : (count > 1 ? "page" : "frame")
     }
 
     public func image(at index: Int) -> CGImage? {
