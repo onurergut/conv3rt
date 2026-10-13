@@ -190,10 +190,10 @@ public struct ConversionEngine: Sendable {
 
     /// Formats written by a bundled codec rather than Apple Image I/O.
     static func isCustomCodec(_ id: String) -> Bool {
-        id == "webp" || id == "jxl"
+        ["webp", "jxl", "qoi", "pcx", "pfm"].contains(id)
     }
 
-    /// Encodes one frame as a single-frame WebP or JPEG XL via the bundled codec.
+    /// Encodes one frame as a single-frame WebP, JPEG XL, QOI, PCX or PFM.
     private func encodeCustomOne(provider: any SourceFrameProvider, index: Int, to url: URL,
                                  target: FormatCapability, settings: ConversionSettings) throws {
         guard let image = provider.image(at: index) else {
@@ -207,6 +207,12 @@ public struct ConversionEngine: Sendable {
             data = try WebPEncoder.encode(image: prepared, lossless: lossless, quality: quality)
         case "jxl":
             data = try JXLEncoder.encode(image: prepared, lossless: lossless, quality: quality)
+        case "qoi":
+            data = try QOICodec.encode(prepared)
+        case "pcx":
+            data = try PCXCodec.encode(prepared)
+        case "pfm":
+            data = try NetpbmCodec.encodePFM(prepared)
         default:
             throw ConversionError.encodeFailed("No encoder for \(target.displayName).")
         }

@@ -257,6 +257,48 @@ public enum FormatCatalog {
         }(),
 
         {
+            var c = FormatCapability(id: "qoi", uti: "com.conv3rt.qoi", displayName: "QOI",
+                                     fileExtensions: ["qoi"], provider: .builtin)
+            c.bitDepths = [8]
+            c.supportsAlpha = true
+            c.supportsColorProfile = false
+            c.supportsMetadata = false
+            c.hasLosslessPath = true
+            c.losslessConditions = [.exactSamples, .alphaPreserved]
+            c.limitations = ["Quite OK Image — lossless 8-bit RGBA, no color profile or metadata."]
+            c.evidence = .tested
+            return c
+        }(),
+
+        {
+            var c = FormatCapability(id: "pcx", uti: "com.conv3rt.pcx", displayName: "PCX",
+                                     fileExtensions: ["pcx"], provider: .builtin)
+            c.bitDepths = [8]
+            c.supportsAlpha = false
+            c.supportsColorProfile = false
+            c.supportsMetadata = false
+            c.hasLosslessPath = true
+            c.losslessConditions = [.exactSamples]
+            c.limitations = ["Reads 24-bit truecolor and 8-bit indexed; writes 24-bit truecolor."]
+            c.evidence = .tested
+            return c
+        }(),
+
+        {
+            var c = FormatCapability(id: "pfm", uti: "com.conv3rt.pfm", displayName: "PFM (float)",
+                                     fileExtensions: ["pfm"], provider: .builtin)
+            c.bitDepths = [32]
+            c.supportsAlpha = false
+            c.supportsColorProfile = false
+            c.supportsMetadata = false
+            c.hasLosslessPath = true
+            c.losslessConditions = [.exactSamples]
+            c.limitations = ["32-bit float; grayscale (Pf) and RGB (PF)."]
+            c.evidence = .tested
+            return c
+        }(),
+
+        {
             var c = FormatCapability(id: "dds", uti: "com.microsoft.dds", displayName: "DDS",
                                      fileExtensions: ["dds"])
             c.bitDepths = [8]

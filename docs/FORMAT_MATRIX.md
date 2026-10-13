@@ -42,7 +42,7 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | ICO | `com.microsoft.ico` | yes | yes | yes | — | yes | — | yes | imageIO | verified |
 | JPEG | `public.jpeg` | yes | yes | — | — | — | yes | — | imageIO | documented |
 | JPEG 2000 | `public.jpeg-2000` | yes | yes | yes | — | — | yes | — | imageIO | tested |
-| JPEG XL | `public.jpeg-xl` | yes | — | yes | yes | — | yes | yes | imageIO | unverified |
+| JPEG XL | `public.jpeg-xl` | yes | yes | yes | — | — | — | yes | imageIO | verified |
 | Kodak raw image | `com.kodak.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | KTX textures | `org.khronos.ktx` | yes | yes | — | — | — | — | — | imageIO | documented |
 | Leaf raw image | `com.leafamerica.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
@@ -52,8 +52,8 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Multiple Picture Object image | `public.mpo-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Netpbm (PBM/PGM/PPM) | `public.pbm` | yes | yes | — | — | — | — | yes | imageIO | tested |
 | Nikon NRW raw image | `com.nikon.nrw-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| Nikon raw image | `com.nikon.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Nikon raw image | `com.nikon.nefx-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| Nikon raw image | `com.nikon.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus OR raw image | `com.olympus.or-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus raw image | `com.olympus.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus SR raw image | `com.olympus.sr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
@@ -61,14 +61,17 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | org.khronos.ktx2 | `org.khronos.ktx2` | yes | yes | — | — | — | — | — | imageIO | documented |
 | Panasonic raw 2 image | `com.panasonic.rw2-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Panasonic raw image | `com.panasonic.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| PCX | `com.conv3rt.pcx` | yes | yes | — | — | — | — | yes | builtin | tested |
 | PDF | `com.adobe.pdf` | yes | yes | yes | — | yes | yes | — | pdfKit | unverified |
 | Pentax raw image | `com.pentax.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
+| PFM (float) | `com.conv3rt.pfm` | yes | yes | — | — | — | — | yes | builtin | tested |
 | Phase One raw image | `com.phaseone.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Photoshop (PSD) | `com.adobe.photoshop-image` | yes | yes | yes | — | — | — | — | imageIO | documented |
 | PICT | `com.apple.pict` | yes | — | yes | — | — | — | — | imageIO | documented |
 | PNG | `public.png` | yes | yes | yes | — | — | yes | yes | imageIO | tested |
 | public.avis | `public.avis` | yes | — | — | — | — | — | — | imageIO | documented |
 | PVRTC Textures | `public.pvr` | yes | yes | — | — | — | — | — | imageIO | documented |
+| QOI | `com.conv3rt.qoi` | yes | yes | yes | — | — | — | yes | builtin | tested |
 | Radiance HDR | `public.radiance` | yes | — | — | — | — | — | — | imageIO | documented |
 | Samsung raw image | `com.samsung.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | SGI | `com.sgi.sgi-image` | yes | — | yes | — | — | — | yes | imageIO | unverified |

@@ -83,6 +83,19 @@ public enum NetpbmCodec {
         return encodePPM(words, maxval: sixteenBit ? 65535 : 255, width: width, height: height)
     }
 
+    /// Encodes the image as PFM (`Pf`/`PF`) regardless of its sample type, by
+    /// promoting to 32-bit float. Used when the user explicitly picks PFM.
+    public static func encodePFM(_ image: CGImage) throws -> Data {
+        let width = image.width, height = image.height
+        guard width > 0, height > 0 else {
+            throw NetpbmError.encodeFailed("The image has no pixels.")
+        }
+        let rgba = try floats(image)
+        let isGray = image.colorSpace?.model == .monochrome
+        return isGray ? try encodePFMGray(rgba, width: width, height: height)
+                      : try encodePFMColor(rgba, width: width, height: height)
+    }
+
     // MARK: - Header helpers
 
     private static func dimensions(_ scanner: inout ByteScanner) throws -> (Int, Int, Int) {

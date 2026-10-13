@@ -69,9 +69,13 @@ public final class CapabilityRegistry: @unchecked Sendable {
                 // PDF is decoded through PDFKit, not Image I/O source types.
                 c.canRead = true
                 c.canWrite = snap.writableUTIs.contains(c.uti)
-            case .bundled, .builtin:
-                // Provided by conv3rt itself (e.g. SVG rasterization).
+            case .bundled:
+                // Read-capable only (e.g. SVG rasterization via AppKit).
                 c.canRead = true
+            case .builtin:
+                // Implemented by conv3rt itself: read and write (QOI, PCX, PFM).
+                c.canRead = true
+                c.canWrite = true
             }
             // WebP and JPEG XL are read by Image I/O but written by a bundled
             // codec; their write capability follows the codec's availability.

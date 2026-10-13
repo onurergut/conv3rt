@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+- **Netpbm family**: full PFM (Portable Float Map, 32-bit float) read/write, plus
+  PPM/PGM/PAM read and PPM/PGM/PFM write — the formats macOS Image I/O cannot
+  read.
+- **QOI** (lossless 8-bit RGBA) and **PCX** (24-bit truecolor / 8-bit indexed
+  read, 24-bit write) codecs, pure Swift.
+- All three are wired end-to-end: they are source formats and output targets,
+  and the output verifier understands them.
+- Fuzz/robustness tests (random and bit-flipped inputs never crash or leave
+  output).
+- `scripts/make-dmg.sh` for DMG packaging; CI workflow.
+
 ## 0.4.0
 
 - **Resource guards**: oversize / decompression-bomb inputs and invalid
