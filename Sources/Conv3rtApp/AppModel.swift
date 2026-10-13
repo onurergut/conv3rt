@@ -81,7 +81,7 @@ final class AppModel: ObservableObject {
 
     // MARK: - Import
 
-    func addFiles(_ urls: [URL]) {
+    func addFiles(_ urls: [URL], load: Bool = true) {
         let result = scanner.scan(urls: urls)
         var added = 0
         for url in result.imageFiles where !items.contains(where: { $0.url == url }) {
@@ -94,7 +94,28 @@ final class AppModel: ObservableObject {
         } else {
             statusLine = added > 0 ? "Added \(added) file(s)." : "No new images found."
         }
-        Task { await loadAll() }
+        if load { Task { await loadAll() } }
+    }
+
+    /// Entry point for Finder Quick Actions / Open With: import, wait for
+    /// inspection, then convert with the current settings.
+    func handleService(_ urls: [URL]) {
+        if outputDirectory == nil, let first = urls.first {
+            // No folder chosen yet: default to the source's own folder so a
+            // Quick Action produces a result without any dialog.
+            outputDirectory = first.deletingLastPathComponent()
+        }
+        Task { await importAndConvert(urls) }
+    }
+
+    private func importAndConvert(_ urls: [URL]) async {
+        addFiles(urls, load: false)
+        await loadAll()
+        guard outputDirectory != nil else {
+            lastError = "Choose an output folder first."
+            return
+        }
+        startConversion()
     }
 
     func addFolder(_ url: URL) { addFiles([url]) }

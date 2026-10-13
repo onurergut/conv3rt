@@ -2,18 +2,20 @@ import SwiftUI
 
 @main
 struct Conv3rtApp: App {
-    @StateObject private var model = AppModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     init() {
         Diagnostics.handleIfRequested()
     }
+
+    private var model: AppModel { delegate.model }
 
     var body: some Scene {
         WindowGroup("conv3rt") {
             ContentView()
                 .environmentObject(model)
                 .onOpenURL { url in
-                    model.addFiles([url])
+                    model.handleService([url])
                 }
         }
         .windowResizability(.contentMinSize)

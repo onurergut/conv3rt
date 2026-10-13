@@ -49,5 +49,32 @@
             </array>
         </dict>
     </array>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key>
+            <dict>
+                <key>default</key>
+                <string>Convert with conv3rt</string>
+            </dict>
+            <key>NSMessage</key>
+            <string>convertWithConv3rt</string>
+            <key>NSPortName</key>
+            <string>conv3rt</string>
+            <key>NSRequiredContext</key>
+            <dict>
+                <key>NSApplicationIdentifier</key>
+                <string>com.apple.finder</string>
+            </dict>
+            <key>NSSendFileTypes</key>
+            <array>
+                <string>public.image</string>
+                <string>public.camera-raw-image</string>
+                <string>com.adobe.photoshop-image</string>
+                <string>com.adobe.pdf</string>
+                <string>public.svg-image</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>
