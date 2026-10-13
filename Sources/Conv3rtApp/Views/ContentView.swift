@@ -222,6 +222,12 @@ struct ContentView: View {
             if model.isRunning { ProgressView(value: model.progress).frame(maxWidth: 220) }
             Text(model.statusLine).font(.callout).foregroundStyle(.secondary).lineLimit(1)
             Spacer()
+            if model.outputDirectory != nil {
+                Button {
+                    model.openOutputFolder()
+                } label: { Label("Open Output Folder", systemImage: "folder") }
+                    .disabled(model.isRunning)
+            }
             if model.items.contains(where: { if case .failed = $0.state { return true }; return false }) {
                 Button("Retry Failed") { model.retryFailed() }.disabled(model.isRunning)
             }

@@ -62,7 +62,7 @@ public struct ConversionEngine: Sendable {
         guard plan.status != .blocked else {
             throw ConversionError.planBlocked(plan.blockingChanges.first?.message ?? "Conversion is blocked.")
         }
-        guard let provider = makeProvider(for: plan.source) else {
+        guard let provider = makeProvider(for: plan.source, settings: plan.settings) else {
             throw ConversionError.sourceUnreadable
         }
 
@@ -121,8 +121,9 @@ public struct ConversionEngine: Sendable {
 
     // MARK: - Provider
 
-    private func makeProvider(for source: ImageInfo) -> (any SourceFrameProvider)? {
-        SourceProviderFactory.make(url: source.url)
+    private func makeProvider(for source: ImageInfo, settings: ConversionSettings)
+        -> (any SourceFrameProvider)? {
+        SourceProviderFactory.make(url: source.url, dpi: settings.pdfDPI, svgScale: settings.svgScale)
     }
 
     // MARK: - Encoding

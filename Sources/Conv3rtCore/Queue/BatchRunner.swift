@@ -71,9 +71,14 @@ public final class BatchRunner: @unchecked Sendable {
                                     continuation.yield(QueueEvent(jobID: id, state: result, completed: counter.increment(), total: total))
                                     return
                                 }
+                                var jobDir = outputDirectory
+                                if let sub = job.outputSubdirectory, !sub.isEmpty {
+                                    jobDir = outputDirectory.appendingPathComponent(sub, isDirectory: true)
+                                    try? FileManager.default.createDirectory(at: jobDir, withIntermediateDirectories: true)
+                                }
                                 do {
                                     let r = try engine.convert(
-                                        plan: job.plan, outputDirectory: outputDirectory,
+                                        plan: job.plan, outputDirectory: jobDir,
                                         namer: namer, verifier: verifier, target: target,
                                         isCancelled: { token.isCancelled },
                                         progress: { p in

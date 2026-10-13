@@ -23,10 +23,11 @@ public enum SourceProviderFactory {
 
     public enum Kind { case imageIO, pdf, svg }
 
-    public static func make(url: URL) -> (any SourceFrameProvider)? {
+    public static func make(url: URL, dpi: Double = 144, svgScale: Double = 2.0)
+        -> (any SourceFrameProvider)? {
         switch detectKind(url: url) {
-        case .pdf: return PDFFrameProvider(url: url)
-        case .svg: return SVGFrameProvider(url: url)
+        case .pdf: return PDFFrameProvider(url: url, dpi: CGFloat(dpi))
+        case .svg: return SVGFrameProvider(url: url, scale: CGFloat(svgScale))
         case .imageIO: return ImageIOFrameProvider(url: url)
         }
     }

@@ -6,12 +6,17 @@ public struct ConversionJob: Identifiable, Sendable {
     public let source: URL
     public let info: ImageInfo
     public let plan: ConversionPlan
+    /// Optional sub-path under the output folder, used to mirror the source's
+    /// folder structure. nil means write directly into the output folder.
+    public let outputSubdirectory: String?
 
-    public init(id: UUID = UUID(), source: URL, info: ImageInfo, plan: ConversionPlan) {
+    public init(id: UUID = UUID(), source: URL, info: ImageInfo, plan: ConversionPlan,
+                outputSubdirectory: String? = nil) {
         self.id = id
         self.source = source
         self.info = info
         self.plan = plan
+        self.outputSubdirectory = outputSubdirectory
     }
 }
 

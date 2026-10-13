@@ -70,15 +70,30 @@ public struct ConversionSettings: Equatable, Sendable {
     public var framePolicy: FramePolicy
     public var alphaBackground: AlphaBackground
 
+    /// Render resolution for PDF pages, in DPI. conv3rt's default (144 = 2× of
+    /// a 72-DPI page) is a choice, not a fixed product decision.
+    public var pdfDPI: Double
+    /// Rasterization scale for SVG, relative to the file's intrinsic size.
+    public var svgScale: Double
+    /// When true, outputs mirror the source sub-folder structure under the
+    /// chosen output folder.
+    public var keepFolderStructure: Bool
+
     public init(
         mode: ConversionMode = .lossless,
         metadataPolicy: MetadataPolicy = .keep,
         framePolicy: FramePolicy = .undecided,
-        alphaBackground: AlphaBackground = .white
+        alphaBackground: AlphaBackground = .white,
+        pdfDPI: Double = 144,
+        svgScale: Double = 2.0,
+        keepFolderStructure: Bool = false
     ) {
         self.mode = mode
         self.metadataPolicy = metadataPolicy
         self.framePolicy = framePolicy
         self.alphaBackground = alphaBackground
+        self.pdfDPI = pdfDPI
+        self.svgScale = svgScale
+        self.keepFolderStructure = keepFolderStructure
     }
 }

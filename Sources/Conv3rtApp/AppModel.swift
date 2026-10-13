@@ -27,6 +27,9 @@ final class AppModel: ObservableObject {
     @Published var framePolicy: FramePolicy { didSet { persist(); recomputePlans() } }
     @Published var alphaBackground: AlphaBackground { didSet { persist(); recomputePlans() } }
     @Published var lossyQuality: Double { didSet { persist() } }
+    @Published var pdfDPI: Double { didSet { persist(); recomputePlans() } }
+    @Published var svgScale: Double { didSet { persist(); recomputePlans() } }
+    @Published var keepFolderStructure: Bool { didSet { persist() } }
     @Published var outputDirectory: URL? { didSet { persistOutputFolder() } }
 
     var selectedFormat: FormatCapability? {
@@ -42,13 +45,14 @@ final class AppModel: ObservableObject {
         self.mode = ConversionMode(rawValue: d.string(forKey: Keys.mode) ?? "") ?? .lossless
         self.metadataPolicy = MetadataPolicy(rawValue: d.string(forKey: Keys.metadata) ?? "") ?? .keep
         self.framePolicy = FramePolicy(rawValue: d.string(forKey: Keys.framePolicy) ?? "") ?? .undecided
-        let bg = d.string(forKey: Keys.alphaBG) ?? "white"
-        self.alphaBackground = (bg == "black") ? .black : .white
+        self.alphaBackground = AppModel.decodeBackground(d.string(forKey: Keys.alphaBG))
         self.lossyQuality = d.object(forKey: Keys.quality) as? Double ?? 0.9
+        self.pdfDPI = d.object(forKey: Keys.pdfDPI) as? Double ?? 144
+        self.svgScale = d.object(forKey: Keys.svgScale) as? Double ?? 2.0
+        self.keepFolderStructure = d.bool(forKey: Keys.keepFolders)
         if let path = d.string(forKey: Keys.output), FileManager.default.fileExists(atPath: path) {
             self.outputDirectory = URL(fileURLWithPath: path)
         }
-        if let saved = d.string(forKey: Keys.lastOutput) { /* retained for future use */ _ = saved }
     }
 
     private enum Keys {
@@ -58,8 +62,20 @@ final class AppModel: ObservableObject {
         static let framePolicy = "conv3rt.framePolicy"
         static let alphaBG = "conv3rt.alphaBG"
         static let quality = "conv3rt.quality"
+        static let pdfDPI = "conv3rt.pdfDPI"
+        static let svgScale = "conv3rt.svgScale"
+        static let keepFolders = "conv3rt.keepFolders"
         static let output = "conv3rt.output"
-        static let lastOutput = "conv3rt.lastOutput"
+    }
+
+    private static func decodeBackground(_ raw: String?) -> AlphaBackground {
+        guard let raw else { return .white }
+        if raw == "black" { return .black }
+        if raw.hasPrefix("custom:") {
+            let parts = raw.dropFirst("custom:".count).split(separator: ",").compactMap { Double($0) }
+            if parts.count == 3 { return .custom(red: parts[0], green: parts[1], blue: parts[2], alpha: 1) }
+        }
+        return .white
     }
 
     private func persist() {
@@ -70,9 +86,13 @@ final class AppModel: ObservableObject {
         switch alphaBackground {
         case .black: defaults.set("black", forKey: Keys.alphaBG)
         case .white: defaults.set("white", forKey: Keys.alphaBG)
-        case .custom: defaults.set("white", forKey: Keys.alphaBG)
+        case .custom(let r, let g, let b, _):
+            defaults.set("custom:\(r),\(g),\(b)", forKey: Keys.alphaBG)
         }
         defaults.set(lossyQuality, forKey: Keys.quality)
+        defaults.set(pdfDPI, forKey: Keys.pdfDPI)
+        defaults.set(svgScale, forKey: Keys.svgScale)
+        defaults.set(keepFolderStructure, forKey: Keys.keepFolders)
     }
 
     private func persistOutputFolder() {
@@ -175,7 +195,14 @@ final class AppModel: ObservableObject {
 
     var currentSettings: ConversionSettings {
         ConversionSettings(mode: mode, metadataPolicy: metadataPolicy,
-                           framePolicy: framePolicy, alphaBackground: alphaBackground)
+                           framePolicy: framePolicy, alphaBackground: alphaBackground,
+                           pdfDPI: pdfDPI, svgScale: svgScale,
+                           keepFolderStructure: keepFolderStructure)
+    }
+
+    func openOutputFolder() {
+        guard let dir = outputDirectory else { return }
+        NSWorkspace.shared.open(dir)
     }
 
     // MARK: - Conversion
@@ -196,7 +223,8 @@ final class AppModel: ObservableObject {
         }
         let jobs: [ConversionJob] = items.compactMap { item in
             guard let info = item.info, let plan = item.plan, plan.status.isConvertible else { return nil }
-            return ConversionJob(source: item.url, info: info, plan: plan)
+            let sub = keepFolderStructure ? item.url.deletingLastPathComponent().lastPathComponent : nil
+            return ConversionJob(source: item.url, info: info, plan: plan, outputSubdirectory: sub)
         }
         guard !jobs.isEmpty else {
             lastError = "No convertible files. Check the format and quality settings."
