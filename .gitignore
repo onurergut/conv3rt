@@ -45,3 +45,6 @@ ThirdParty/libwebp/
 ThirdParty/jxl-src/
 ThirdParty/jxl-build-*/
 ThirdParty/jxl-lib/
+
+# Internal development docs (not public)
+dev-docs/

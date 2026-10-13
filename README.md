@@ -114,11 +114,9 @@ tests are compiled out.
 ```
 Sources/Conv3rtCore/   UI-free, testable core (capabilities, inspection, planning, conversion, verification, file access, queue)
 Sources/Conv3rtApp/    SwiftUI app (window, file list, settings, Finder services)
-Tests/Conv3rtCoreTests/ 44 tests (42 without libjxl)
-docs/                  architecture, format matrix, lossless contract, limits, codecs, testing, packaging, performance
+Tests/Conv3rtCoreTests/ the test suite
+docs/                  format matrix and user-facing notes
 ```
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design.
 
 ## Known limitations
 

@@ -26,8 +26,9 @@ swift run conv3rt --dump-capabilities   # inspect live format support
 ## Adding a format or codec
 
 1. Add or update the entry in `FormatCatalog` with correct `Evidence`.
-2. If it needs a codec, follow the process in `docs/CODECS.md` (pin, license,
-   both architectures, size, test).
+2. If it needs a codec, pin an exact version, check the license (and its
+   transitive dependencies), build it for both architectures, measure the size,
+   and add a round-trip test.
 3. Add a lossless round-trip test with known samples in `Tests/`.
 4. Update `docs/FORMAT_MATRIX.md` (or regenerate with `--dump-matrix`).
 
