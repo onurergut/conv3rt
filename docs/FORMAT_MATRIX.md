@@ -19,7 +19,7 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Adobe raw image | `com.adobe.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | ASTC textures | `org.khronos.astc` | yes | yes | — | — | — | — | — | imageIO | documented |
 | AVIF | `public.avif` | yes | — | yes | yes | — | yes | — | imageIO | unverified |
-| BMP | `com.microsoft.bmp` | yes | yes | yes | — | — | — | yes | imageIO | verified |
+| BMP | `com.microsoft.bmp` | yes | yes | yes | — | — | — | yes | imageIO | tested |
 | Camera RAW | `public.camera-raw-image` | yes | — | — | — | — | yes | — | imageIO | unverified |
 | Canon CR2 raw image | `com.canon.cr2-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Canon CR3 raw image | `com.canon.cr3-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
@@ -34,14 +34,14 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | GIF | `com.compuserve.gif` | yes | yes | yes | yes | — | yes | yes | imageIO | documented |
 | Hasselblad 3FR raw image | `com.hasselblad.3fr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Hasselblad FFF raw image | `com.hasselblad.fff-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| HEIC / HEIF | `public.heic` | yes | yes | yes | yes | — | yes | — | imageIO | documented |
+| HEIC / HEIF | `public.heic` | yes | yes | yes | yes | — | yes | — | imageIO | verified |
 | HEIF Image | `public.avci` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIF Image | `public.heif` | yes | — | — | — | — | — | — | imageIO | documented |
 | HEIF Image Sequence | `public.heics` | yes | yes | — | — | — | — | — | imageIO | documented |
-| ICNS | `com.apple.icns` | yes | yes | yes | — | yes | — | yes | imageIO | documented |
-| ICO | `com.microsoft.ico` | yes | yes | yes | — | yes | — | yes | imageIO | documented |
+| ICNS | `com.apple.icns` | yes | yes | yes | — | yes | — | yes | imageIO | verified |
+| ICO | `com.microsoft.ico` | yes | yes | yes | — | yes | — | yes | imageIO | verified |
 | JPEG | `public.jpeg` | yes | yes | — | — | — | yes | — | imageIO | documented |
-| JPEG 2000 | `public.jpeg-2000` | yes | yes | yes | — | — | yes | yes | imageIO | documented |
+| JPEG 2000 | `public.jpeg-2000` | yes | yes | yes | — | — | yes | — | imageIO | tested |
 | JPEG XL | `public.jpeg-xl` | yes | — | yes | yes | — | yes | yes | imageIO | unverified |
 | Kodak raw image | `com.kodak.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | KTX textures | `org.khronos.ktx` | yes | yes | — | — | — | — | — | imageIO | documented |
@@ -50,14 +50,14 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Leica raw image | `com.leica.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Minolta raw image | `com.konicaminolta.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Multiple Picture Object image | `public.mpo-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| Netpbm (PBM/PGM/PPM) | `public.pbm` | yes | yes | — | — | — | — | yes | imageIO | unverified |
+| Netpbm (PBM/PGM/PPM) | `public.pbm` | yes | yes | — | — | — | — | yes | imageIO | tested |
 | Nikon NRW raw image | `com.nikon.nrw-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Nikon raw image | `com.nikon.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Nikon raw image | `com.nikon.nefx-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus OR raw image | `com.olympus.or-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus raw image | `com.olympus.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Olympus SR raw image | `com.olympus.sr-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
-| OpenEXR | `com.ilm.openexr-image` | yes | yes | yes | — | — | yes | yes | imageIO | documented |
+| OpenEXR | `com.ilm.openexr-image` | yes | yes | yes | — | — | yes | yes | imageIO | verified |
 | org.khronos.ktx2 | `org.khronos.ktx2` | yes | yes | — | — | — | — | — | imageIO | documented |
 | Panasonic raw 2 image | `com.panasonic.rw2-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Panasonic raw image | `com.panasonic.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
@@ -77,6 +77,6 @@ arm64) via `swift run conv3rt --dump-matrix`. Do not edit by hand — regenerate
 | Sony raw image | `com.sony.raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | Sony SR2 raw image | `com.sony.sr2-raw-image` | yes | — | — | — | — | — | — | imageIO | documented |
 | SVG (vector) | `public.svg-image` | yes | — | yes | — | — | — | — | bundled | verified |
-| TGA | `com.truevision.tga-image` | yes | yes | yes | — | — | — | yes | imageIO | documented |
+| TGA | `com.truevision.tga-image` | yes | yes | yes | — | — | — | yes | imageIO | tested |
 | TIFF | `public.tiff` | yes | yes | yes | — | yes | yes | yes | imageIO | tested |
 | WebP | `org.webmproject.webp` | yes | yes | yes | — | — | — | yes | imageIO | verified |

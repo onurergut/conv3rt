@@ -67,7 +67,7 @@ public enum FormatCatalog {
             c.hasLosslessPath = true
             c.losslessConditions = [.alphaPreserved, .bitDepthPreserved, .exactSamples]
             c.limitations = ["No color profile.", "Limited metadata."]
-            c.evidence = .verified
+            c.evidence = .tested
             return c
         }(),
 
@@ -99,7 +99,7 @@ public enum FormatCatalog {
             c.losslessConditions = [.notStructural]
             c.limitations = ["Lossless label requires the full YUV pipeline to be verified; not claimed here.",
                              "Encoder may convert RGB to YUV and subsample chroma."]
-            c.evidence = .documented
+            c.evidence = .verified
             return c
         }(),
 
@@ -161,9 +161,10 @@ public enum FormatCatalog {
             c.supportsAlpha = true
             c.supportsColorProfile = true
             c.supportsMetadata = true
-            c.hasLosslessPath = true
-            c.losslessConditions = [.exactSamples, .bitDepthPreserved]
-            c.evidence = .documented
+            c.hasLosslessPath = false
+            c.losslessConditions = [.notStructural]
+            c.limitations = ["Image I/O writes JPEG 2000 lossily by default; a genuine lossless JP2 write path is not implemented."]
+            c.evidence = .tested
             return c
         }(),
 
@@ -178,7 +179,7 @@ public enum FormatCatalog {
             c.losslessConditions = [.exactSamples, .notStructural]
             c.limitations = ["EXR may use lossy or lossless compression; the compression method and channel types must be checked per file.",
                              "Floating-point and half-float data are preserved; do not route through an 8-bit path."]
-            c.evidence = .documented
+            c.evidence = .verified
             return c
         }(),
 
@@ -205,7 +206,7 @@ public enum FormatCatalog {
             c.supportsMetadata = false
             c.hasLosslessPath = true
             c.losslessConditions = [.exactSamples, .alphaPreserved]
-            c.evidence = .documented
+            c.evidence = .tested
             return c
         }(),
 
@@ -220,7 +221,7 @@ public enum FormatCatalog {
             c.hasLosslessPath = true
             c.losslessConditions = [.exactSamples]
             c.limitations = ["Windows icon container; multiple sizes are separate images."]
-            c.evidence = .documented
+            c.evidence = .verified
             return c
         }(),
 
@@ -235,7 +236,7 @@ public enum FormatCatalog {
             c.hasLosslessPath = true
             c.losslessConditions = [.exactSamples]
             c.limitations = ["macOS icon container; multiple sizes are separate images."]
-            c.evidence = .documented
+            c.evidence = .verified
             return c
         }(),
 
@@ -248,8 +249,8 @@ public enum FormatCatalog {
             c.supportsMetadata = false
             c.hasLosslessPath = true
             c.losslessConditions = [.exactSamples, .bitDepthPreserved]
-            c.limitations = ["Native macOS exposes the PBM UTI; PGM/PPM/PAM variants depend on the decoder."]
-            c.evidence = .unverified
+            c.limitations = ["Verified lossless for RGB via the native Netpbm writer."]
+            c.evidence = .tested
             return c
         }(),
 

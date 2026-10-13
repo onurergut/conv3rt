@@ -12,6 +12,8 @@ faked in the UI.
   ICC profile is written; **EXIF/XMP are not yet written into WebP**, and
   animated WebP output is not implemented.
 - **Radiance HDR, SGI, PICT are read-only** on macOS; not output targets.
+- **JPEG 2000 output is lossy.** Image I/O writes JP2 lossily by default
+  (verified: sample 0 → 1), so it is not offered as a lossless target.
 - **PFM and PAM/PGM/PPM** beyond the native PBM UTI are not guaranteed.
 - **EPS/PS/AI** and medical/scientific formats are not supported (they need
   Ghostscript-sized dependencies with accuracy and security costs).

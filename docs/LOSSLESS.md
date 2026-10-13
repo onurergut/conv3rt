@@ -44,7 +44,7 @@ why in English, suggests alternatives, and lets the user consciously switch mode
 | GIF | Conditional | ≤256 colors and 1-bit alpha; lossless only if the source fits. Otherwise blocked. |
 | JPEG | **No** | Lossy only. Alpha and >8-bit are blocking in Lossless mode. |
 | HEIC/HEIF | **No** | RGB→YUV, subsampling, bit depth — the full pipeline is not verified lossless. |
-| JPEG 2000 | Yes | Keep exact samples and depth. |
+| JPEG 2000 | **No** | Image I/O writes JP2 lossily by default (verified: sample 0 → 1). No lossless JP2 write path. |
 | OpenEXR | Yes | Compression method and channel types must be lossless; do not route through 8-bit. |
 | TGA, ICO, ICNS, Netpbm | Yes | Exact samples where representable. |
 | WebP / AVIF / JPEG XL | n/a | Not writable on macOS; not offered as targets. |
