@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        # libjxl is not built in CI, so the JPEG XL write tests are compiled out
+        # and the suite is 2 tests smaller. Everything else runs.
+        run: swift test
+
+      - name: Capability matrix still generates
+        run: swift run conv3rt --dump-capabilities > /dev/null
