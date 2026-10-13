@@ -22,7 +22,16 @@ jobs:
       - name: Test
         # libjxl is not built in CI, so the JPEG XL write tests are compiled out
         # and the suite is 2 tests smaller. Everything else runs.
-        run: swift test
+        run: swift test --enable-code-coverage
+
+      - name: Coverage summary
+        # Report only — no threshold, so the build never fails on a number.
+        run: |
+          BIN_PATH=$(swift build --show-bin-path)
+          xcrun llvm-cov report \
+            "$BIN_PATH/conv3rtPackageTests.xctest/Contents/MacOS/conv3rtPackageTests" \
+            -instr-profile "$BIN_PATH/codecov/default.profdata" \
+            Sources Tests
 
       - name: Capability matrix still generates
         run: swift run conv3rt --dump-capabilities > /dev/null
