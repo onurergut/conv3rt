@@ -201,12 +201,19 @@ public struct ConversionEngine: Sendable {
         }
         let prepared = prepare(image, target: target, settings: settings)
         let lossless = settings.mode == .lossless
+
+        // WebP/JXL carry metadata through dedicated container chunks/boxes. Only
+        // Image I/O-sourced frames can supply it; other providers have none.
+        let (exif, xmp) = customMetadata(provider: provider, settings: settings)
+
         let data: Data
         switch target.id {
         case "webp":
-            data = try WebPEncoder.encode(image: prepared, lossless: lossless, quality: quality)
+            data = try WebPEncoder.encode(image: prepared, lossless: lossless, quality: quality,
+                                          exif: exif, xmp: xmp)
         case "jxl":
-            data = try JXLEncoder.encode(image: prepared, lossless: lossless, quality: quality)
+            data = try JXLEncoder.encode(image: prepared, lossless: lossless, quality: quality,
+                                         exif: exif, xmp: xmp)
         case "qoi":
             data = try QOICodec.encode(prepared)
         case "pcx":
@@ -217,6 +224,22 @@ public struct ConversionEngine: Sendable {
             throw ConversionError.encodeFailed("No encoder for \(target.displayName).")
         }
         try data.write(to: url, options: .atomic)
+    }
+
+    /// Metadata blobs (raw EXIF + XMP packet) to embed in a custom-codec output,
+    /// applying the settings' metadata policy. Only Image I/O sources supply
+    /// metadata; every other provider yields none.
+    private func customMetadata(provider: any SourceFrameProvider, settings: ConversionSettings)
+        -> (exif: [UInt8]?, xmp: [UInt8]?) {
+        switch settings.metadataPolicy {
+        case .remove:
+            return (nil, nil)
+        case .keep, .removeLocation:
+            let includeLocation = settings.metadataPolicy == .keep
+            guard let io = provider as? ImageIOFrameProvider else { return (nil, nil) }
+            return (io.metadataEXIF(includeLocation: includeLocation),
+                    io.metadataXMP(includeLocation: includeLocation))
+        }
     }
 
     // MARK: - Properties

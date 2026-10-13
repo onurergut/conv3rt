@@ -115,7 +115,8 @@ public enum FormatCatalog {
             c.losslessConditions = [.alphaPreserved, .colorProfilePreserved, .exactSamples]
             c.limitations = ["Native macOS reads WebP but cannot write it; conv3rt writes WebP with the bundled libwebp.",
                              "Lossless mode uses libwebp exact mode to preserve RGB under fully transparent pixels.",
-                             "The ICC profile is written (ICCP); EXIF/XMP are not yet written.",
+                             "The ICC profile (ICCP), EXIF/GPS (EXIF chunk) and XMP (XMP chunk) are written; IPTC is not.",
+                             "Only limited metadata is stored: Image I/O reports EXIF/GPS and XMP only.",
                              "Animated WebP output is not implemented."]
             c.evidence = .verified
             return c
@@ -148,7 +149,8 @@ public enum FormatCatalog {
             c.hasLosslessPath = true
             c.losslessConditions = [.exactSamples, .colorProfilePreserved]
             c.limitations = ["Native macOS reads JPEG XL but cannot write it; conv3rt writes JXL with a bundled libjxl (off by default until built).",
-                             "The ICC profile is embedded; EXIF/XMP are not yet written.",
+                             "The ICC profile, EXIF/GPS (Exif box) and XMP (xml box) are written; IPTC is not.",
+                             "Only limited metadata is stored: Image I/O reports EXIF/GPS only.",
                              "Animated JPEG XL output is not implemented."]
             c.evidence = .verified
             return c

@@ -9,6 +9,8 @@
 int conv3rt_jxl_encode_rgba(const uint8_t *rgba, int width, int height,
                             int lossless, float quality,
                             const uint8_t *icc, size_t icc_size,
+                            const uint8_t *exif, size_t exif_size,
+                            const uint8_t *xmp, size_t xmp_size,
                             uint8_t **out, size_t *out_size) {
     if (rgba == NULL || out == NULL || out_size == NULL || width <= 0 || height <= 0) {
         return 1;
@@ -16,6 +18,12 @@ int conv3rt_jxl_encode_rgba(const uint8_t *rgba, int width, int height,
 
     JxlEncoder *enc = JxlEncoderCreate(NULL);
     if (enc == NULL) return 1;
+
+    // Metadata boxes are opt-in; enable them up front so JxlEncoderAddBox is
+    // allowed once the frame has been added.
+    const int want_exif = (exif != NULL && exif_size > 0);
+    const int want_xmp = (xmp != NULL && xmp_size > 0);
+    const int boxes_ok = (JxlEncoderUseBoxes(enc) == JXL_ENC_SUCCESS);
 
     JxlBasicInfo info;
     JxlEncoderInitBasicInfo(&info);
@@ -75,6 +83,28 @@ int conv3rt_jxl_encode_rgba(const uint8_t *rgba, int width, int height,
         JxlEncoderDestroy(enc);
         return 3;
     }
+    JxlEncoderCloseFrames(enc);
+
+    // Attach metadata boxes after the frame, before closing boxes. Boxes are
+    // best-effort: an encoder that refuses them still yields a valid codestream.
+    if (boxes_ok && want_exif) {
+        // The "Exif" box contents are prefixed by a 4-byte tiff-header offset,
+        // which is zero when the TIFF header follows immediately.
+        uint8_t *boxed = (uint8_t *)malloc(exif_size + 4);
+        if (boxed != NULL) {
+            boxed[0] = boxed[1] = boxed[2] = boxed[3] = 0;
+            memcpy(boxed + 4, exif, exif_size);
+            JxlBoxType type; memcpy(type, "Exif", 4);
+            JxlEncoderAddBox(enc, type, boxed, exif_size + 4, JXL_FALSE);
+            free(boxed);
+        }
+    }
+    if (boxes_ok && want_xmp) {
+        JxlBoxType type; memcpy(type, "xml ", 4);
+        JxlEncoderAddBox(enc, type, xmp, xmp_size, JXL_FALSE);
+    }
+
+    JxlEncoderCloseBoxes(enc);
     JxlEncoderCloseInput(enc);
 
     size_t cap = 1u << 16, size = 0;
