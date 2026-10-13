@@ -11,6 +11,10 @@
   and the output verifier understands them.
 - Fuzz/robustness tests (random and bit-flipped inputs never crash or leave
   output).
+- 16-bit and color-profile correctness tests (depth preserved on PNG/TIFF;
+  profile preserved or the loss flagged).
+- UX: recent output folders, a completion cue, and a per-file output-format
+  override.
 - `scripts/make-dmg.sh` for DMG packaging; CI workflow.
 
 ## 0.4.0
