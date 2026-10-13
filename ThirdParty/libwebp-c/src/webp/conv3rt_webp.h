@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+typedef int (*conv3rt_webp_progress_hook)(int percent, void *user_data);
+
 // Encodes 8-bit non-premultiplied RGBA (row stride in bytes) to WebP.
 //   lossless != 0  -> lossless encode with WebPConfig.exact = 1, so the RGB
 //                     values of fully transparent pixels are preserved exactly.
@@ -24,6 +26,7 @@ int conv3rt_webp_encode_rgba(const uint8_t *rgba, int width, int height, int str
                              const uint8_t *icc, size_t icc_size,
                              const uint8_t *exif, size_t exif_size,
                              const uint8_t *xmp, size_t xmp_size,
+                             conv3rt_webp_progress_hook progress, void *user_data,
                              uint8_t **out, size_t *out_size);
 
 // Encodes an animated WebP from several 8-bit non-premultiplied RGBA frames.
@@ -40,6 +43,7 @@ int conv3rt_webp_encode_anim_rgba(const uint8_t *rgba_frames, int width, int hei
                                   const uint8_t *icc, size_t icc_size,
                                   const uint8_t *exif, size_t exif_size,
                                   const uint8_t *xmp, size_t xmp_size,
+                                  conv3rt_webp_progress_hook progress, void *user_data,
                                   uint8_t **out, size_t *out_size);
 
 #ifdef __cplusplus

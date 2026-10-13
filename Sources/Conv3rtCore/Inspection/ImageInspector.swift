@@ -35,51 +35,57 @@ public struct ImageInspector: Sendable {
                                 fileSize: Int64, declaredUTI: String?) throws -> ImageInfo {
         let count = CGImageSourceGetCount(source)
 
-        // Top-level properties (first image).
         let topProps = (CGImageSourceCopyProperties(source, nil) as? [CFString: Any]) ?? [:]
         let frame0Props = (CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]) ?? topProps
-
         let width = int(frame0Props[kCGImagePropertyPixelWidth] ?? topProps[kCGImagePropertyPixelWidth]) ?? 0
         let height = int(frame0Props[kCGImagePropertyPixelHeight] ?? topProps[kCGImagePropertyPixelHeight]) ?? 0
-        let depth = int(frame0Props[kCGImagePropertyDepth]) ?? 8
         let orientation = int(frame0Props[kCGImagePropertyOrientation])
-        let colorModel = colorModelString(frame0Props[kCGImagePropertyColorModel])
-        let profileName = frame0Props[kCGImagePropertyProfileName] as? String
-        let hasAlpha = (frame0Props[kCGImagePropertyHasAlpha] as? Bool) ?? false
-
-        let exif = frame0Props[kCGImagePropertyExifDictionary] as? [CFString: Any]
-        let gps = frame0Props[kCGImagePropertyGPSDictionary] as? [CFString: Any]
-        let iptc = frame0Props[kCGImagePropertyIPTCDictionary] as? [CFString: Any]
-        // XMP has no public Image I/O dictionary constant; read the literal key.
-        let xmp = frame0Props["XMP" as CFString] as? [CFString: Any]
-
-        // Frame/page structure.
-        let gifDict = frame0Props[kCGImagePropertyGIFDictionary] as? [CFString: Any]
-        let pngDict = frame0Props[kCGImagePropertyPNGDictionary] as? [CFString: Any]
+        var depth = 0
+        var pixelDepth = 0
+        var hasAlpha = false
+        var colorModel = colorModelString(frame0Props[kCGImagePropertyColorModel])
+        var profileName: String?
+        var hasEXIF = hasMetadata(topProps, key: kCGImagePropertyExifDictionary)
+        var hasGPS = hasMetadata(topProps, key: kCGImagePropertyGPSDictionary)
+        var hasIPTC = hasMetadata(topProps, key: kCGImagePropertyIPTCDictionary)
+        var hasXMP = hasMetadata(topProps, key: "XMP" as CFString)
+        var canvasWidth = width
+        var canvasHeight = height
+        var decodedBytes = 0.0
         var durations: [Double] = []
         for i in 0..<count {
-            guard let p = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [CFString: Any] else { continue }
-            if let g = p[kCGImagePropertyGIFDictionary] as? [CFString: Any],
-               let d = double(g[kCGImagePropertyGIFDelayTime]) {
-                durations.append(d)
-            } else if let w = p[kCGImagePropertyWebPDictionary] as? [CFString: Any],
-                      let d = double(w[kCGImagePropertyWebPDelayTime]) {
-                durations.append(d)
+            guard let p = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [CFString: Any] else {
+                throw InspectionError.corrupted("Frame \(i + 1) has no readable image properties.")
             }
+            let frameWidth = int(p[kCGImagePropertyPixelWidth]) ?? 0
+            let frameHeight = int(p[kCGImagePropertyPixelHeight]) ?? 0
+            let frameDepth = max(int(p[kCGImagePropertyDepth]) ?? 8, 1)
+            let frameAlpha = (p[kCGImagePropertyHasAlpha] as? Bool) ?? false
+            let frameModel = colorModelString(p[kCGImagePropertyColorModel])
+            let bits = frameDepth.multipliedReportingOverflow(by: channelCount(colorModel: frameModel, hasAlpha: frameAlpha))
+            let framePixelDepth = bits.overflow ? Int.max : bits.partialValue
+            depth = max(depth, frameDepth)
+            pixelDepth = max(pixelDepth, framePixelDepth)
+            hasAlpha = hasAlpha || frameAlpha
+            if frameModel == "CMYK" { colorModel = frameModel }
+            if profileName == nil, let name = p[kCGImagePropertyProfileName] as? String, !name.isEmpty {
+                profileName = name
+            }
+            hasEXIF = hasEXIF || hasMetadata(p, key: kCGImagePropertyExifDictionary)
+            hasGPS = hasGPS || hasMetadata(p, key: kCGImagePropertyGPSDictionary)
+            hasIPTC = hasIPTC || hasMetadata(p, key: kCGImagePropertyIPTCDictionary)
+            hasXMP = hasXMP || hasMetadata(p, key: "XMP" as CFString) || hasXMPMetadata(source, index: i)
+            canvasWidth = max(canvasWidth, frameWidth)
+            canvasHeight = max(canvasHeight, frameHeight)
+            // Header dimensions/depth avoid decoding an oversized image just
+            // to reject it. Each frame contributes its own footprint.
+            if frameWidth <= 0 || frameHeight <= 0 { decodedBytes = .infinity }
+            else { decodedBytes += Double(frameWidth) * Double(frameHeight) * ceil(Double(framePixelDepth) / 8) }
+            if let delay = SourceAnimation.duration(in: p) { durations.append(delay) }
         }
-        let loopCount = int(gifDict?[kCGImagePropertyGIFLoopCount])
-            ?? int(pngDict?[kCGImagePropertyAPNGLoopCount])
-
-        // Formats whose multi-image containers are animations, not page stacks.
-        // WebP/AVIF/JPEG XL carry animation without the GIF delay keys, so a
-        // multi-image file of these types is treated as animated regardless.
-        let animatedFamily = UTTypeBridge.conformance(uti, toIdentifier: "com.compuserve.gif")
-            || UTTypeBridge.conformance(uti, toIdentifier: "public.heics")
-            || UTTypeBridge.conformance(uti, toIdentifier: "org.webmproject.webp")
-            || UTTypeBridge.conformance(uti, toIdentifier: "public.avif")
-            || UTTypeBridge.conformance(uti, toIdentifier: "public.jpeg-xl")
-        let isAnimatedType = count > 1 && (animatedFamily || durations.count > 1)
-
+        let loopCount = SourceAnimation.loopCount(in: topProps) ?? SourceAnimation.loopCount(in: frame0Props)
+        let isAnimatedType = SourceAnimation.isAnimated(uti: uti, count: count, properties: topProps)
+            || SourceAnimation.isAnimated(uti: uti, count: count, properties: frame0Props)
         let frameCount = isAnimatedType ? count : 1
         let pageCount = isAnimatedType ? 1 : count
 
@@ -94,19 +100,20 @@ public struct ImageInspector: Sendable {
             pageCount: pageCount,
             frameDurations: isAnimatedType ? durations : [],
             loopCount: isAnimatedType ? loopCount : nil,
-            canvasWidth: width,
-            canvasHeight: height,
+            canvasWidth: canvasWidth,
+            canvasHeight: canvasHeight,
             bitsPerComponent: depth,
-            bitsPerPixel: depth * channelCount(colorModel: colorModel, hasAlpha: hasAlpha),
+            bitsPerPixel: pixelDepth,
             hasAlpha: hasAlpha,
             colorModel: colorModel,
             colorSpaceName: profileName,
             hasColorProfile: (profileName?.isEmpty == false),
             exifOrientation: orientation,
-            hasEXIF: exif?.isEmpty == false,
-            hasGPS: gps?.isEmpty == false,
-            hasIPTC: iptc?.isEmpty == false,
-            hasXMP: xmp?.isEmpty == false
+            hasEXIF: hasEXIF,
+            hasGPS: hasGPS,
+            hasIPTC: hasIPTC,
+            hasXMP: hasXMP,
+            decodedByteCount: decodedBytes
         )
     }
 
@@ -132,11 +139,31 @@ public struct ImageInspector: Sendable {
         // Use the rendered image's dimensions as authoritative.
         let width = first.width
         let height = first.height
-        let alpha: Bool
-        switch first.alphaInfo {
-        case .first, .last, .premultipliedFirst, .premultipliedLast, .alphaOnly: alpha = true
-        default: alpha = false
+        var depth = first.bitsPerComponent
+        var pixelDepth = first.bitsPerPixel
+        var alpha = false
+        var canvasWidth = width
+        var canvasHeight = height
+        var decodedBytes = 0.0
+        var profileName: String?
+        for index in 0..<provider.frameCount {
+            guard let image = index == 0 ? first : provider.image(at: index) else {
+                throw InspectionError.corrupted("Page \(index + 1) could not be decoded.")
+            }
+            depth = max(depth, image.bitsPerComponent)
+            pixelDepth = max(pixelDepth, image.bitsPerPixel)
+            switch image.alphaInfo {
+            case .first, .last, .premultipliedFirst, .premultipliedLast, .alphaOnly: alpha = true
+            default: break
+            }
+            canvasWidth = max(canvasWidth, image.width)
+            canvasHeight = max(canvasHeight, image.height)
+            decodedBytes += Double(image.bytesPerRow) * Double(image.height)
+            if profileName == nil { profileName = image.colorSpace?.name as String? }
         }
+        // These builtin files store no ICC profile. The decoder supplies an
+        // implicit color space for display, which is not an embedded profile.
+        let carriesProfile = !["com.conv3rt.qoi", "com.conv3rt.pcx", "com.conv3rt.pfm"].contains(uti ?? "")
         let isPaged = provider.unitName == "page"
         return ImageInfo(
             url: url,
@@ -149,16 +176,17 @@ public struct ImageInspector: Sendable {
             pageCount: isPaged ? provider.frameCount : (provider.frameCount > 1 ? provider.frameCount : 1),
             frameDurations: [],
             loopCount: nil,
-            canvasWidth: width,
-            canvasHeight: height,
-            bitsPerComponent: first.bitsPerComponent,
-            bitsPerPixel: first.bitsPerPixel,
+            canvasWidth: canvasWidth,
+            canvasHeight: canvasHeight,
+            bitsPerComponent: depth,
+            bitsPerPixel: pixelDepth,
             hasAlpha: alpha,
             colorModel: "RGB",
-            colorSpaceName: first.colorSpace?.name as String?,
-            hasColorProfile: first.colorSpace != nil,
+            colorSpaceName: profileName,
+            hasColorProfile: carriesProfile && profileName != nil,
             exifOrientation: nil,
-            hasEXIF: false, hasGPS: false, hasIPTC: false, hasXMP: false
+            hasEXIF: false, hasGPS: false, hasIPTC: false, hasXMP: false,
+            decodedByteCount: decodedBytes
         )
     }
 
@@ -180,10 +208,24 @@ public struct ImageInspector: Sendable {
         return nil
     }
 
-    private func double(_ any: Any?) -> Double? {
-        if let d = any as? Double { return d }
-        if let n = any as? NSNumber { return n.doubleValue }
-        return nil
+    private func hasMetadata(_ properties: [CFString: Any], key: CFString) -> Bool {
+        (properties[key] as? [CFString: Any])?.isEmpty == false
+    }
+
+    private func hasXMPMetadata(_ source: CGImageSource, index: Int) -> Bool {
+        guard let metadata = CGImageSourceCopyMetadataAtIndex(source, index, nil),
+              let tags = CGImageMetadataCopyTags(metadata) as? [CGImageMetadataTag] else { return false }
+        return tags.contains { tag in
+            let prefix = CGImageMetadataTagCopyPrefix(tag) as String? ?? ""
+            let namespace = CGImageMetadataTagCopyNamespace(tag) as String? ?? ""
+            // Image I/O also exposes native EXIF/TIFF fields through this API.
+            // Other namespaces include standard and user-defined XMP schemas;
+            // their XML prefix is arbitrary and cannot identify the schema.
+            let native = ["http://ns.adobe.com/exif/1.0/", "http://ns.adobe.com/exif/1.0/aux/",
+                          "http://ns.adobe.com/tiff/1.0/"]
+            return ["xmp", "xmpRights", "xmpMM", "dc", "photoshop"].contains(prefix)
+                || (!namespace.isEmpty && !native.contains(namespace))
+        }
     }
 
     private func colorModelString(_ any: Any?) -> String? {

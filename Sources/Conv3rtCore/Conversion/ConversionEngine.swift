@@ -1,7 +1,7 @@
 import Foundation
 import ImageIO
 import CoreGraphics
-import CoreImage
+import Darwin
 
 /// Result of converting a single source/plan.
 public struct ConversionResult: Sendable {
@@ -62,6 +62,7 @@ public struct ConversionEngine: Sendable {
         guard plan.status != .blocked else {
             throw ConversionError.planBlocked(plan.blockingChanges.first?.message ?? "Conversion is blocked.")
         }
+        if isCancelled() { throw ConversionError.canceled }
         guard let provider = makeProvider(for: plan.source, settings: plan.settings) else {
             throw ConversionError.sourceUnreadable
         }
@@ -71,7 +72,21 @@ public struct ConversionEngine: Sendable {
         let settings = plan.settings
 
         var outputs: [URL] = []
+        var outputIdentities: [OutputIdentity] = []
         var notes: [String] = []
+        var completed = false
+        defer {
+            if !completed {
+                for (url, identity) in zip(outputs, outputIdentities) {
+                    if OutputIdentity(url: url) == identity {
+                        url.withUnsafeFileSystemRepresentation { path in
+                            if let path { _ = unlink(path) }
+                        }
+                    }
+                    namer.release(url)
+                }
+            }
+        }
 
         // Decide frame indices.
         let total = provider.frameCount
@@ -92,7 +107,7 @@ public struct ConversionEngine: Sendable {
                 let safe = try SafeOutput(directory: outputDirectory)
                 defer { safe.cleanup() }
                 try encodeSingleFrame(provider: provider, index: idx, to: safe.tempURL,
-                                      target: target, settings: settings)
+                                      target: target, settings: settings, isCancelled: isCancelled)
                 try verifier.verify(url: safe.tempURL, expectedUTI: target.uti, expectedFrames: 1)
                 if settings.mode == .lossless && !plan.isStructural {
                     try LosslessVerifier().verify(sourceProvider: provider, sourceInfo: plan.source,
@@ -100,9 +115,13 @@ public struct ConversionEngine: Sendable {
                                                   expectedOutputFrames: 1)
                 }
                 if isCancelled() { throw ConversionError.canceled }
+                guard let identity = OutputIdentity(url: safe.tempURL) else {
+                    throw ConversionError.encodeFailed("The temporary output could not be read.")
+                }
                 let finalURL = namer.uniqueURL(in: outputDirectory, baseName: frameName, fileExtension: ext)
                 let placed = try safe.commit(to: finalURL, namer: namer, baseName: frameName, ext: ext)
                 outputs.append(placed)
+                outputIdentities.append(identity)
                 progress?(Double(n + 1) / Double(frames.count))
             }
             notes.append("Exported \(frames.count) \(provider.unitName)s.")
@@ -119,14 +138,20 @@ public struct ConversionEngine: Sendable {
                                               expectedOutputFrames: frames.count)
             }
             if isCancelled() { throw ConversionError.canceled }
+            guard let identity = OutputIdentity(url: safe.tempURL) else {
+                throw ConversionError.encodeFailed("The temporary output could not be read.")
+            }
             let finalURL = namer.uniqueURL(in: outputDirectory, baseName: baseName, fileExtension: ext)
             let placed = try safe.commit(to: finalURL, namer: namer, baseName: baseName, ext: ext)
             outputs.append(placed)
+            outputIdentities.append(identity)
         }
 
         if plan.isStructural {
             notes.append("Exported as a flattened raster image.")
         }
+        completed = true
+        progress?(1)
         return ConversionResult(outputs: outputs, frameCount: frames.count,
                                 isStructural: plan.isStructural, notes: notes)
     }
@@ -148,15 +173,16 @@ public struct ConversionEngine: Sendable {
             if isCancelled() { throw ConversionError.canceled }
             if indices.count > 1, Self.supportsAnimatedWrite(target.id) {
                 try encodeCustomAnimated(provider: provider, indices: indices, to: url,
-                                         target: target, settings: settings, progress: progress)
+                                         target: target, settings: settings, isCancelled: isCancelled,
+                                         progress: progress)
                 return
             }
             guard indices.count == 1 else {
                 throw ConversionError.encodeFailed("Animated \(target.displayName) output is not supported.")
             }
             try encodeCustomOne(provider: provider, index: indices[0], to: url,
-                                target: target, settings: settings)
-            progress?(1)
+                                target: target, settings: settings, isCancelled: isCancelled,
+                                progress: progress.map { callback in { @Sendable p in callback(p * 0.9) } })
             return
         }
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, target.uti as CFString,
@@ -175,8 +201,9 @@ public struct ConversionEngine: Sendable {
                                               target: target, settings: settings)
             let prepared = prepare(image, target: target, settings: settings)
             let frameProps = withQuality(props, target: target, settings: settings)
-            CGImageDestinationAddImage(dest, prepared, frameProps as CFDictionary)
-            progress?(Double(n + 1) / Double(max(indices.count, 1)))
+            addImage(prepared, to: dest, provider: provider, index: idx,
+                     properties: frameProps, target: target, settings: settings)
+            progress?(0.9 * Double(n + 1) / Double(max(indices.count, 1)))
         }
 
         guard CGImageDestinationFinalize(dest) else {
@@ -185,9 +212,12 @@ public struct ConversionEngine: Sendable {
     }
 
     private func encodeSingleFrame(provider: any SourceFrameProvider, index: Int, to url: URL,
-                                   target: FormatCapability, settings: ConversionSettings) throws {
+                                   target: FormatCapability, settings: ConversionSettings,
+                                   isCancelled: @escaping () -> Bool) throws {
+        if isCancelled() { throw ConversionError.canceled }
         if Self.isCustomCodec(target.id) {
-            try encodeCustomOne(provider: provider, index: index, to: url, target: target, settings: settings)
+            try encodeCustomOne(provider: provider, index: index, to: url, target: target,
+                                settings: settings, isCancelled: isCancelled)
             return
         }
         guard let image = provider.image(at: index) else {
@@ -200,7 +230,8 @@ public struct ConversionEngine: Sendable {
                                           provider: provider, target: target, settings: settings)
         props = withQuality(props, target: target, settings: settings)
         let prepared = prepare(image, target: target, settings: settings)
-        CGImageDestinationAddImage(dest, prepared, props as CFDictionary)
+        addImage(prepared, to: dest, provider: provider, index: index,
+                 properties: props, target: target, settings: settings)
         guard CGImageDestinationFinalize(dest) else {
             throw ConversionError.encodeFailed("The encoder did not finalize the output.")
         }
@@ -221,7 +252,10 @@ public struct ConversionEngine: Sendable {
 
     /// Encodes one frame as a single-frame WebP, JPEG XL, QOI, PCX or PFM.
     private func encodeCustomOne(provider: any SourceFrameProvider, index: Int, to url: URL,
-                                 target: FormatCapability, settings: ConversionSettings) throws {
+                                 target: FormatCapability, settings: ConversionSettings,
+                                 isCancelled: @escaping () -> Bool,
+                                 progress: (@Sendable (Double) -> Void)? = nil) throws {
+        if isCancelled() { throw ConversionError.canceled }
         guard let image = provider.image(at: index) else {
             throw ConversionError.cannotDecodeFrame(index)
         }
@@ -230,13 +264,13 @@ public struct ConversionEngine: Sendable {
 
         // WebP/JXL carry metadata through dedicated container chunks/boxes. Only
         // Image I/O-sourced frames can supply it; other providers have none.
-        let (exif, xmp) = customMetadata(provider: provider, settings: settings)
+        let (exif, xmp) = customMetadata(provider: provider, index: index, settings: settings)
 
         let data: Data
         switch target.id {
         case "webp":
             data = try WebPEncoder.encode(image: prepared, lossless: lossless, quality: quality,
-                                          exif: exif, xmp: xmp)
+                                          exif: exif, xmp: xmp, isCancelled: isCancelled, progress: progress)
         case "jxl":
             data = try JXLEncoder.encode(image: prepared, lossless: lossless, quality: quality,
                                          exif: exif, xmp: xmp)
@@ -255,26 +289,34 @@ public struct ConversionEngine: Sendable {
         default:
             throw ConversionError.encodeFailed("No encoder for \(target.displayName).")
         }
+        if isCancelled() { throw ConversionError.canceled }
         try data.write(to: url, options: .atomic)
     }
 
     /// Encodes all `indices` as one animated file with a bundled codec.
     private func encodeCustomAnimated(provider: any SourceFrameProvider, indices: [Int], to url: URL,
                                       target: FormatCapability, settings: ConversionSettings,
+                                      isCancelled: @escaping () -> Bool,
                                       progress: (@Sendable (Double) -> Void)?) throws {
         var frames: [(image: CGImage, duration: Double)] = []
         frames.reserveCapacity(indices.count)
+        var workingBytes = 0.0
         for (n, idx) in indices.enumerated() {
+            if isCancelled() { throw ConversionError.canceled }
             guard let image = provider.image(at: idx) else {
                 throw ConversionError.cannotDecodeFrame(idx)
             }
             let prepared = prepare(image, target: target, settings: settings)
+            workingBytes += Double(prepared.bytesPerRow) * Double(prepared.height) * 3
+            guard workingBytes <= RasterSizeGuard.maximumBytes else {
+                throw ConversionError.encodeFailed("The animation is too large for the encoding buffers.")
+            }
             frames.append((prepared, frameDuration(provider: provider, index: idx)))
-            progress?(Double(n + 1) / Double(max(indices.count, 1)))
+            progress?(0.2 * Double(n + 1) / Double(max(indices.count, 1)))
         }
 
         let lossless = settings.mode == .lossless
-        let (exif, xmp) = customMetadata(provider: provider, settings: settings)
+        let (exif, xmp) = customMetadata(provider: provider, index: indices[0], settings: settings)
         let loop = loopCount(provider: provider)
 
         let data: Data
@@ -282,68 +324,61 @@ public struct ConversionEngine: Sendable {
         case "webp":
             data = try WebPEncoder.encodeAnimated(frames: frames, lossless: lossless,
                                                   quality: quality, loopCount: loop,
-                                                  exif: exif, xmp: xmp)
+                                                  exif: exif, xmp: xmp, isCancelled: isCancelled,
+                                                  progress: progress.map { callback in { @Sendable p in callback(0.2 + p * 0.7) } })
         default:
             throw ConversionError.encodeFailed("Animated \(target.displayName) output is not supported.")
         }
+        if isCancelled() { throw ConversionError.canceled }
         try data.write(to: url, options: .atomic)
     }
 
-    /// Per-frame display time in seconds, from the GIF or WebP delay dictionary,
-    /// falling back to 0.1 s when the frame carries no timing.
+    /// Use original timing rather than the decoder's clamped playback delay.
     private func frameDuration(provider: any SourceFrameProvider, index: Int) -> Double {
-        let props = provider.properties(at: index)
-        if let gif = props[kCGImagePropertyGIFDictionary] as? [CFString: Any],
-           let d = (gif[kCGImagePropertyGIFDelayTime] as? NSNumber)?.doubleValue, d > 0 {
-            return d
-        }
-        if let webp = props[kCGImagePropertyWebPDictionary] as? [CFString: Any],
-           let d = (webp[kCGImagePropertyWebPDelayTime] as? NSNumber)?.doubleValue, d > 0 {
-            return d
-        }
-        return 0.1
+        let duration = SourceAnimation.duration(in: provider.properties(at: index))
+        return duration.flatMap { $0 > 0 ? $0 : nil } ?? 0.1
     }
 
     /// Animation loop count from the source, or 0 (repeat forever) when absent.
     private func loopCount(provider: any SourceFrameProvider) -> Int {
-        let props = provider.properties(at: 0)
-        if let gif = props[kCGImagePropertyGIFDictionary] as? [CFString: Any],
-           let loop = (gif[kCGImagePropertyGIFLoopCount] as? NSNumber)?.intValue {
-            return loop
-        }
-        if let webp = props[kCGImagePropertyWebPDictionary] as? [CFString: Any],
-           let loop = (webp[kCGImagePropertyWebPLoopCount] as? NSNumber)?.intValue {
-            return loop
-        }
-        return 0
+        (provider as? ImageIOFrameProvider)?.animationLoopCount
+            ?? SourceAnimation.loopCount(in: provider.properties(at: 0)) ?? 0
     }
 
     /// Metadata blobs (raw EXIF + XMP packet) to embed in a custom-codec output,
     /// applying the settings' metadata policy. Only Image I/O sources supply
     /// metadata; every other provider yields none.
-    private func customMetadata(provider: any SourceFrameProvider, settings: ConversionSettings)
+    private func customMetadata(provider: any SourceFrameProvider, index: Int,
+                                settings: ConversionSettings)
         -> (exif: [UInt8]?, xmp: [UInt8]?) {
         switch settings.metadataPolicy {
         case .remove:
-            return (nil, nil)
+            return ((provider as? ImageIOFrameProvider)?.orientationEXIF(index: index), nil)
         case .keep, .removeLocation:
             let includeLocation = settings.metadataPolicy == .keep
             guard let io = provider as? ImageIOFrameProvider else { return (nil, nil) }
-            return (io.metadataEXIF(includeLocation: includeLocation),
-                    io.metadataXMP(includeLocation: includeLocation))
+            return (io.metadataEXIF(includeLocation: includeLocation, index: index),
+                    io.metadataXMP(includeLocation: includeLocation, index: index))
         }
     }
 
     // MARK: - Properties
 
+    private func addImage(_ image: CGImage, to destination: CGImageDestination,
+                          provider: any SourceFrameProvider, index: Int,
+                          properties: [CFString: Any], target: FormatCapability,
+                          settings: ConversionSettings) {
+        let metadata = target.supportsMetadata
+            ? (provider as? ImageIOFrameProvider)?.metadata(at: index, policy: settings.metadataPolicy) : nil
+        CGImageDestinationAddImageAndMetadata(destination, image, metadata, properties as CFDictionary)
+    }
+
     private func applyContainerProperties(dest: CGImageDestination, provider: any SourceFrameProvider,
                                           target: FormatCapability, settings: ConversionSettings) {
         // Preserve loop count for animated targets.
-        guard provider.isAnimated, target.supportsAnimation else { return }
-        if let gif = provider.properties(at: 0)[kCGImagePropertyGIFDictionary] as? [CFString: Any],
-           let loop = gif[kCGImagePropertyGIFLoopCount] {
-            CGImageDestinationSetProperties(dest, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: loop]] as CFDictionary)
-        }
+        guard provider.isAnimated, target.id == "gif" else { return }
+        CGImageDestinationSetProperties(dest, [kCGImagePropertyGIFDictionary:
+            [kCGImagePropertyGIFLoopCount: loopCount(provider: provider)]] as CFDictionary)
     }
 
     private func destinationProperties(from sourceProps: [CFString: Any], index: Int,
@@ -377,10 +412,9 @@ public struct ConversionEngine: Sendable {
         }
 
         // Preserve per-frame delay for animated targets.
-        if provider.isAnimated, target.supportsAnimation,
-           let gif = sourceProps[kCGImagePropertyGIFDictionary] as? [CFString: Any],
-           let delay = gif[kCGImagePropertyGIFDelayTime] {
-            props[kCGImagePropertyGIFDictionary] = [kCGImagePropertyGIFDelayTime: delay]
+        if provider.isAnimated, target.id == "gif" {
+            props[kCGImagePropertyGIFDictionary] = [kCGImagePropertyGIFDelayTime:
+                frameDuration(provider: provider, index: index)]
         }
 
         return props
@@ -426,9 +460,14 @@ public struct ConversionEngine: Sendable {
     private func flatten(_ image: CGImage, over bg: AlphaBackground) -> CGImage? {
         let width = image.width, height = image.height
         let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        let depth = max(image.bitsPerComponent, 8)
+        var bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        if depth == 16 { bitmapInfo.formUnion(.byteOrder16Little) }
+        if depth == 32 { bitmapInfo.formUnion(.byteOrder32Little) }
+        if image.bitmapInfo.contains(.floatComponents) { bitmapInfo.formUnion(.floatComponents) }
         guard let ctx = CGContext(data: nil, width: width, height: height,
-                                  bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace,
-                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+                                  bitsPerComponent: depth, bytesPerRow: 0, space: colorSpace,
+                                  bitmapInfo: bitmapInfo.rawValue) else { return nil }
         let (r, g, b, a) = rgba(bg)
         ctx.setFillColor(red: r, green: g, blue: b, alpha: a)
         ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
@@ -442,5 +481,24 @@ public struct ConversionEngine: Sendable {
         case .white: return (1, 1, 1, 1)
         case .custom(let r, let g, let b, let a): return (CGFloat(r), CGFloat(g), CGFloat(b), CGFloat(a))
         }
+    }
+}
+
+private struct OutputIdentity: Equatable {
+    let device: dev_t
+    let inode: ino_t
+    let birthSeconds: Int
+    let birthNanoseconds: Int
+
+    init?(url: URL) {
+        var info = stat()
+        let result = url.withUnsafeFileSystemRepresentation { path in
+            path.map { lstat($0, &info) } ?? -1
+        }
+        guard result == 0 else { return nil }
+        device = info.st_dev
+        inode = info.st_ino
+        birthSeconds = info.st_birthtimespec.tv_sec
+        birthNanoseconds = info.st_birthtimespec.tv_nsec
     }
 }

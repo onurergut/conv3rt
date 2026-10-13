@@ -74,7 +74,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
                 c.canRead = true
             case .builtin:
                 // Implemented by conv3rt itself: read and write (QOI, PCX, PFM).
-                c.canRead = true
+                c.canRead = c.id == "dds" ? snap.readableUTIs.contains(c.uti) : true
                 c.canWrite = true
             }
             // WebP, JPEG XL and AVIF are read by Image I/O but written by a

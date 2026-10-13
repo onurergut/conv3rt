@@ -7,6 +7,8 @@ import Foundation
 /// `CapabilityRegistry`. Feature flags here are conservative and carry an
 /// `Evidence` level so the UI can distinguish verified claims from documented
 /// ones.
+/// `losslessConditions` documents the format's requirements. Explicit planner
+/// checks and post-encoding verification evaluate the implemented conversion.
 public enum FormatCatalog {
 
     public static let all: [FormatCapability] = [
@@ -60,7 +62,7 @@ public enum FormatCatalog {
         {
             var c = FormatCapability(id: "bmp", uti: "com.microsoft.bmp", displayName: "BMP",
                                      fileExtensions: ["bmp"])
-            c.bitDepths = [1, 4, 8, 24, 32]
+            c.bitDepths = [8] // Per component; 24/32-bit BMP refers to whole pixels.
             c.supportsAlpha = true
             c.supportsColorProfile = false
             c.supportsMetadata = false
@@ -92,7 +94,7 @@ public enum FormatCatalog {
                                      fileExtensions: ["heic", "heif"])
             c.bitDepths = [8, 10, 12]
             c.supportsAlpha = true
-            c.supportsAnimation = true   // HEICS sequences.
+            c.supportsAnimation = false  // The public.heic writer does not guarantee HEICS sequences.
             c.supportsColorProfile = true
             c.supportsMetadata = true
             c.hasLosslessPath = false
@@ -205,7 +207,7 @@ public enum FormatCatalog {
         {
             var c = FormatCapability(id: "tga", uti: "com.truevision.tga-image", displayName: "TGA",
                                      fileExtensions: ["tga"])
-            c.bitDepths = [8, 16, 24, 32]
+            c.bitDepths = [8] // Per component; packed pixel depths are not channel depths.
             c.supportsAlpha = true
             c.supportsColorProfile = false
             c.supportsMetadata = false
@@ -218,7 +220,7 @@ public enum FormatCatalog {
         {
             var c = FormatCapability(id: "ico", uti: "com.microsoft.ico", displayName: "ICO",
                                      fileExtensions: ["ico"])
-            c.bitDepths = [8, 32]
+            c.bitDepths = [8]
             c.supportsAlpha = true
             c.supportsMultiPage = true
             c.supportsColorProfile = false
@@ -233,7 +235,7 @@ public enum FormatCatalog {
         {
             var c = FormatCapability(id: "icns", uti: "com.apple.icns", displayName: "ICNS",
                                      fileExtensions: ["icns"])
-            c.bitDepths = [8, 32]
+            c.bitDepths = [8]
             c.supportsAlpha = true
             c.supportsMultiPage = true
             c.supportsColorProfile = false

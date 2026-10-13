@@ -109,14 +109,34 @@ public enum NetpbmCodec {
         return (width, height, maxval)
     }
 
+    /// Includes expanded samples and the Core Graphics provider copy; input
+    /// bytes also coexist as caller Data and scanner storage during decoding.
+    private static func pixelCount(width: Int, height: Int, workspaceBytesPerPixel: Int,
+                                   scanner: ByteScanner) throws -> Int {
+        guard width > 0, height > 0 else { throw NetpbmError.malformed("Non-positive dimensions.") }
+        guard RasterSizeGuard.fits(width: width, height: height, bytesPerPixel: workspaceBytesPerPixel,
+                                  additionalBytes: Double(scanner.bytes.count) * 2) else {
+            throw NetpbmError.unsupported("Image too large for available resources.")
+        }
+        return width * height
+    }
+
+    private static func validateSamples(_ values: [Int], maxval: Int) throws {
+        guard values.allSatisfy({ $0 >= 0 && $0 <= maxval }) else {
+            throw NetpbmError.malformed("A sample is outside the declared range 0...\(maxval).")
+        }
+    }
+
     // MARK: - Bitmap (P1 / P4)
 
     private static func decodeBitmapASCII(_ scanner: inout ByteScanner) throws -> CGImage {
         let width = try scanner.int(), height = try scanner.int()
-        guard width > 0, height > 0 else { throw NetpbmError.malformed("Non-positive dimensions.") }
-        var samples = [UInt8](repeating: 255, count: width * height)
-        for i in 0..<(width * height) {
+        let count = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 8, scanner: scanner)
+        try scanner.requireBytes(count)
+        var samples = [UInt8](repeating: 255, count: count)
+        for i in 0..<count {
             let v = try scanner.int()
+            guard v == 0 || v == 1 else { throw NetpbmError.malformed("A bitmap sample must be 0 or 1.") }
             samples[i] = v == 0 ? 255 : 0
         }
         return try makeRGB8(expandGray(samples), width: width, height: height)
@@ -124,12 +144,12 @@ public enum NetpbmCodec {
 
     private static func decodeBitmapBinary(_ scanner: inout ByteScanner) throws -> CGImage {
         let width = try scanner.int(), height = try scanner.int()
-        guard width > 0, height > 0 else { throw NetpbmError.malformed("Non-positive dimensions.") }
+        let count = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 8, scanner: scanner)
         scanner.consumeSeparator()
         let rowBytes = (width + 7) / 8
-        var samples = [UInt8](repeating: 255, count: width * height)
         // Packed MSB-first rows, each padded to a byte boundary.
         let raw = try scanner.readBytes(height * rowBytes)
+        var samples = [UInt8](repeating: 255, count: count)
         for y in 0..<height {
             for x in 0..<width {
                 let byte = raw[raw.startIndex + y * rowBytes + x / 8]
@@ -144,15 +164,19 @@ public enum NetpbmCodec {
 
     private static func decodeGrayASCII(_ scanner: inout ByteScanner) throws -> CGImage {
         let (width, height, maxval) = try dimensions(&scanner)
-        var values = [Int](repeating: 0, count: width * height)
+        let count = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 24, scanner: scanner)
+        try scanner.requireBytes(count)
+        var values = [Int](repeating: 0, count: count)
         for i in 0..<values.count { values[i] = try scanner.int() }
         return try grayImage(values, maxval: maxval, width: width, height: height)
     }
 
     private static func decodeGrayBinary(_ scanner: inout ByteScanner) throws -> CGImage {
         let (width, height, maxval) = try dimensions(&scanner)
+        let count = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 24, scanner: scanner)
         scanner.consumeSeparator()
-        var values = [Int](repeating: 0, count: width * height)
+        try scanner.requireBytes(count * (maxval < 256 ? 1 : 2))
+        var values = [Int](repeating: 0, count: count)
         if maxval < 256 {
             for i in 0..<values.count { values[i] = Int(try scanner.readByte()) }
         } else {
@@ -162,6 +186,7 @@ public enum NetpbmCodec {
     }
 
     private static func grayImage(_ values: [Int], maxval: Int, width: Int, height: Int) throws -> CGImage {
+        try validateSamples(values, maxval: maxval)
         if maxval <= 255 {
             let g = values.map { UInt8(scaled($0, from: maxval, to: 255)) }
             return try makeRGB8(expandGray(g), width: width, height: height)
@@ -174,15 +199,19 @@ public enum NetpbmCodec {
 
     private static func decodeColorASCII(_ scanner: inout ByteScanner) throws -> CGImage {
         let (width, height, maxval) = try dimensions(&scanner)
-        var values = [Int](repeating: 0, count: width * height * 3)
+        let count = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 36, scanner: scanner) * 3
+        try scanner.requireBytes(count)
+        var values = [Int](repeating: 0, count: count)
         for i in 0..<values.count { values[i] = try scanner.int() }
         return try colorImage(values, maxval: maxval, width: width, height: height)
     }
 
     private static func decodeColorBinary(_ scanner: inout ByteScanner) throws -> CGImage {
         let (width, height, maxval) = try dimensions(&scanner)
+        let count = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 36, scanner: scanner) * 3
         scanner.consumeSeparator()
-        var values = [Int](repeating: 0, count: width * height * 3)
+        try scanner.requireBytes(count * (maxval < 256 ? 1 : 2))
+        var values = [Int](repeating: 0, count: count)
         if maxval < 256 {
             for i in 0..<values.count { values[i] = Int(try scanner.readByte()) }
         } else {
@@ -192,6 +221,7 @@ public enum NetpbmCodec {
     }
 
     private static func colorImage(_ values: [Int], maxval: Int, width: Int, height: Int) throws -> CGImage {
+        try validateSamples(values, maxval: maxval)
         if maxval <= 255 {
             let rgb = values.map { UInt8(scaled($0, from: maxval, to: 255)) }
             return try makeRGB8(rgb, width: width, height: height)
@@ -224,7 +254,8 @@ public enum NetpbmCodec {
         guard maxval >= 1, maxval <= 65535 else { throw NetpbmError.malformed("Maxval \(maxval) is out of range.") }
         scanner.consumeSeparator()
 
-        let count = width * height * depth
+        let count = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 48, scanner: scanner) * depth
+        try scanner.requireBytes(count * (maxval < 256 ? 1 : 2))
         var values = [Int](repeating: 0, count: count)
         if maxval < 256 {
             for i in 0..<count { values[i] = Int(try scanner.readByte()) }
@@ -232,35 +263,34 @@ public enum NetpbmCodec {
             for i in 0..<count { values[i] = Int(try scanner.readUInt16BE()) }
         }
 
-        // PAM has no place for alpha in a Netpbm image; keep the first three
-        // channels (or gray) and drop any alpha channel.
-        var rgb = [Int](repeating: 0, count: width * height * 3)
-        for p in 0..<(width * height) {
-            let base = p * depth
-            if depth == 1 {
-                rgb[p * 3] = values[base]; rgb[p * 3 + 1] = values[base]; rgb[p * 3 + 2] = values[base]
-            } else {
-                rgb[p * 3] = values[base]; rgb[p * 3 + 1] = values[base + 1]; rgb[p * 3 + 2] = values[base + 2]
-            }
+        if depth == 1 { return try grayImage(values, maxval: maxval, width: width, height: height) }
+        if depth == 3 { return try colorImage(values, maxval: maxval, width: width, height: height) }
+        try validateSamples(values, maxval: maxval)
+        if maxval <= 255 {
+            let rgba = values.map { UInt8(scaled($0, from: maxval, to: 255)) }
+            return try RGBAImage.make(from: rgba, width: width, height: height)
         }
-        return try colorImage(rgb, maxval: maxval, width: width, height: height)
+        let rgba = values.map { UInt16(scaled($0, from: maxval, to: 65535)) }
+        return try makeRGBA16(rgba, width: width, height: height)
     }
 
     // MARK: - PFM (PF / Pf)
 
     private static func decodePFM(_ scanner: inout ByteScanner, channels: Int) throws -> CGImage {
         let width = try scanner.int(), height = try scanner.int()
-        guard width > 0, height > 0 else { throw NetpbmError.malformed("Non-positive dimensions.") }
+        let pixels = try pixelCount(width: width, height: height, workspaceBytesPerPixel: 44, scanner: scanner)
         let scale = try scanner.float()
+        guard scale.isFinite, scale != 0 else { throw NetpbmError.malformed("PFM scale must be finite and nonzero.") }
         let littleEndian = scale < 0
         scanner.consumeSeparator()
 
-        let count = width * height * channels
+        let count = pixels * channels
+        try scanner.requireBytes(count * 4)
         var raw = [Float](repeating: 0, count: count)
         for i in 0..<count { raw[i] = try scanner.readFloat(littleEndian: littleEndian) }
 
         // PFM stores scanlines bottom-to-top.
-        var rgba = [Float](repeating: 1, count: width * height * 4)
+        var rgba = [Float](repeating: 1, count: pixels * 4)
         for y in 0..<height {
             let src = (height - 1 - y) * width
             for x in 0..<width {
@@ -487,6 +517,18 @@ public enum NetpbmCodec {
         return image
     }
 
+    private static func makeRGBA16(_ rgba: [UInt16], width: Int, height: Int) throws -> CGImage {
+        guard let provider = CGDataProvider(data: rawData(rgba) as CFData),
+              let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let image = CGImage(width: width, height: height, bitsPerComponent: 16, bitsPerPixel: 64,
+                                  bytesPerRow: width * 8, space: space,
+                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue).union(.byteOrder16Little),
+                                  provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent) else {
+            throw NetpbmError.malformed("Could not build a 16-bit RGBA image.")
+        }
+        return image
+    }
+
     private static func rawData<T>(_ values: [T]) -> Data {
         values.withUnsafeBufferPointer { Data(buffer: $0) }
     }
@@ -599,8 +641,12 @@ private struct ByteScanner {
     }
 
     mutating func readBytes(_ count: Int) throws -> ArraySlice<UInt8> {
-        guard index + count <= bytes.count else { throw NetpbmError.malformed("Truncated raster data.") }
+        try requireBytes(count)
         defer { index += count }
         return bytes[index..<(index + count)]
+    }
+
+    func requireBytes(_ count: Int) throws {
+        guard count >= 0, count <= bytes.count - index else { throw NetpbmError.malformed("Truncated raster data.") }
     }
 }

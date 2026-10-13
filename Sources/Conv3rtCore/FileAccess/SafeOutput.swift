@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Manages a single write to the output folder via a temporary file.
 ///
@@ -25,18 +26,28 @@ public final class SafeOutput {
     @discardableResult
     public func commit(to finalURL: URL, namer: OutputNamer,
                        baseName: String, ext: String) throws -> URL {
-        let fm = FileManager.default
         var destination = finalURL
         var attempts = 0
         while true {
-            do {
-                try fm.moveItem(at: tempURL, to: destination)
-                return destination
-            } catch {
-                attempts += 1
-                if attempts >= 50 { throw OutputError.writeFailed(error.localizedDescription) }
-                destination = namer.uniqueURL(in: directory, baseName: baseName, fileExtension: ext)
+            // FileManager's existence check and move can race another writer.
+            // RENAME_EXCL tests and places the complete file atomically, even
+            // when the destination is a dangling symbolic link.
+            let status = tempURL.withUnsafeFileSystemRepresentation { source in
+                destination.withUnsafeFileSystemRepresentation { target in
+                    guard let source, let target else { errno = EINVAL; return Int32(-1) }
+                    return renamex_np(source, target, UInt32(RENAME_EXCL))
+                }
             }
+            if status == 0 { return destination }
+            let code = errno
+            guard code == EEXIST else {
+                if code == ENOSPC { throw OutputError.noSpace }
+                if code == EACCES || code == EPERM { throw OutputError.notWritable(directory.path) }
+                throw OutputError.writeFailed(String(cString: strerror(code)))
+            }
+            attempts += 1
+            if attempts >= 50 { throw OutputError.writeFailed(String(cString: strerror(code))) }
+            destination = namer.uniqueURL(in: directory, baseName: baseName, fileExtension: ext)
         }
     }
 

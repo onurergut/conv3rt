@@ -18,11 +18,10 @@ public struct ImageIOFrameProvider: SourceFrameProvider {
         let count = CGImageSourceGetCount(source)
         self.frameCount = count
         let uti = CGImageSourceGetType(source) as String? ?? ""
-        // GIF and HEICS are animated by type; a multi-frame WebP is an animated
-        // WebP (a multi-frame WebP always carries animation timing).
-        let animated = UTTypeBridge.conformance(uti, toIdentifier: "com.compuserve.gif")
-            || UTTypeBridge.conformance(uti, toIdentifier: "public.heics")
-            || (count > 1 && UTTypeBridge.conformance(uti, toIdentifier: "org.webmproject.webp"))
+        let top = (CGImageSourceCopyProperties(source, nil) as? [CFString: Any]) ?? [:]
+        let first = (CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]) ?? [:]
+        let animated = SourceAnimation.isAnimated(uti: uti, count: count, properties: top)
+            || SourceAnimation.isAnimated(uti: uti, count: count, properties: first)
         self.isAnimated = animated
         self.unitName = animated ? "frame" : (count > 1 ? "page" : "frame")
     }
@@ -43,47 +42,77 @@ public struct ImageIOFrameProvider: SourceFrameProvider {
         (CGImageSourceCopyProperties(source, nil) as? [CFString: Any]) ?? [:]
     }
 
-    // MARK: - Metadata for custom codecs (WebP / JPEG XL)
+    public var animationLoopCount: Int? {
+        SourceAnimation.loopCount(in: containerProperties()) ?? SourceAnimation.loopCount(in: properties(at: 0))
+    }
 
-    /// The first frame's merged metadata serialized as an XMP packet, or nil when
+    // MARK: - Metadata
+
+    /// Returns the requested frame's metadata under the selected privacy policy.
+    public func metadata(at index: Int, policy: MetadataPolicy) -> CGImageMetadata? {
+        guard index >= 0, index < frameCount, policy != .remove,
+              let metadata = CGImageSourceCopyMetadataAtIndex(source, index, nil) else { return nil }
+        return policy == .removeLocation ? Self.strippingGPS(metadata) : metadata
+    }
+
+    /// The requested frame's merged metadata serialized as an XMP packet, or nil when
     /// the source carries none. When `includeLocation` is false, GPS tags are
     /// stripped so a "remove location" policy is honored.
-    public func metadataXMP(includeLocation: Bool) -> [UInt8]? {
-        guard let md = CGImageSourceCopyMetadataAtIndex(source, 0, nil) else { return nil }
-        let tags = (CGImageMetadataCopyTags(md) as? [CGImageMetadataTag]) ?? []
+    public func metadataXMP(includeLocation: Bool, index: Int = 0) -> [UInt8]? {
+        guard let effective = metadata(at: index, policy: includeLocation ? .keep : .removeLocation) else { return nil }
+        let tags = (CGImageMetadataCopyTags(effective) as? [CGImageMetadataTag]) ?? []
         guard !tags.isEmpty else { return nil }
-
-        let effective: CGImageMetadata
-        if includeLocation {
-            effective = md
-        } else {
-            guard let stripped = Self.strippingGPS(md) else { return nil }
-            effective = stripped
-        }
         guard let data = CGImageMetadataCreateXMPData(effective, nil) else { return nil }
         return Array(data as Data)
     }
 
-    /// The first frame's raw EXIF payload (TIFF-structured, without the JPEG
+    /// The requested frame's raw EXIF payload (TIFF-structured, without the JPEG
     /// "Exif\0\0" header), suitable for a WebP "EXIF" chunk or a JPEG XL "Exif"
-    /// box. Returns nil when the frame has neither EXIF nor GPS.
+    /// box. Returns nil when the frame has no EXIF, GPS or display orientation.
     ///
     /// The payload is produced by writing the frame's metadata into a throwaway
     /// in-memory JPEG and extracting its APP1 segment — Image I/O offers no
     /// public EXIF serializer. When `includeLocation` is false the GPS dictionary
     /// is omitted.
-    public func metadataEXIF(includeLocation: Bool) -> [UInt8]? {
-        var props = properties(at: 0)
+    public func metadataEXIF(includeLocation: Bool, index: Int = 0) -> [UInt8]? {
+        guard index >= 0, index < frameCount else { return nil }
+        var props = properties(at: index)
         if !includeLocation { props.removeValue(forKey: kCGImagePropertyGPSDictionary) }
 
         let hasEXIF = !((props[kCGImagePropertyExifDictionary] as? [CFString: Any])?.isEmpty ?? true)
         let hasGPS = !((props[kCGImagePropertyGPSDictionary] as? [CFString: Any])?.isEmpty ?? true)
-        guard hasEXIF || hasGPS else { return nil }
+        guard hasEXIF || hasGPS || Self.displayOrientation(in: props) != nil else { return nil }
+        return Self.exifPayload(properties: props)
+    }
 
+    /// Display orientation is necessary to interpret the unrotated pixel data,
+    /// even when private metadata is removed. This payload contains only that tag.
+    public func orientationEXIF(index: Int = 0) -> [UInt8]? {
+        guard index >= 0, index < frameCount,
+              let orientation = Self.displayOrientation(in: properties(at: index)) else { return nil }
+        // Little-endian TIFF with one IFD entry: Orientation (0x0112),
+        // one SHORT value stored inline, followed by a null next-IFD offset.
+        // Using a JPEG serializer here would add unrelated EXIF dimensions.
+        return [
+            0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00,
+            0x01, 0x00,
+            0x12, 0x01, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00,
+            UInt8(orientation), 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ]
+    }
+
+    private static func displayOrientation(in properties: [CFString: Any]) -> Int? {
+        guard let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue,
+              (2...8).contains(orientation) else { return nil }
+        return orientation
+    }
+
+    private static func exifPayload(properties: [CFString: Any]) -> [UInt8]? {
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil),
               let pixel = Self.onePixelImage() else { return nil }
-        CGImageDestinationAddImage(dest, pixel, props as CFDictionary)
+        CGImageDestinationAddImage(dest, pixel, properties as CFDictionary)
         guard CGImageDestinationFinalize(dest) else { return nil }
         return Self.extractEXIFPayload(Data(referencing: data))
     }

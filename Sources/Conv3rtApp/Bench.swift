@@ -8,6 +8,7 @@ import Conv3rtCore
 enum Bench {
 
     static func run(count: Int, size: Int = 256) {
+        guard count >= 0 else { print("The benchmark file count must not be negative."); return }
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("conv3rt-bench-\(UUID().uuidString)")
         let src = root.appendingPathComponent("src")

@@ -32,6 +32,13 @@ final class CapabilityRegistryTests: XCTestCase {
         XCTAssertFalse(runtimeOnly.isEmpty)
     }
 
+    func testDDSReadCapabilityFollowsItsSystemDecoder() throws {
+        let probe = RuntimeTypeProbe()
+        let dds = try XCTUnwrap(CapabilityRegistry(probe: probe).capability(id: "dds"))
+        XCTAssertEqual(dds.canRead, probe.canRead(uti: dds.uti))
+        XCTAssertTrue(dds.canWrite)
+    }
+
     func testWritableListIsNonEmptyAndSorted() {
         let reg = CapabilityRegistry(probe: RuntimeTypeProbe())
         let w = reg.writableFormats()

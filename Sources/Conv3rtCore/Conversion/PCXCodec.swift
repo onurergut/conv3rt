@@ -34,12 +34,31 @@ public enum PCXCodec {
         let height = Int(le16(bytes, 10)) - Int(le16(bytes, 6)) + 1
         let planes = Int(bytes[65])
         let bytesPerLine = Int(le16(bytes, 66))
-        guard width > 0, height > 0, bytesPerLine > 0 else { throw Error.invalidHeader }
+        guard width > 0, height > 0, bytesPerLine >= width else { throw Error.invalidHeader }
+        guard bitsPerPixel == 8, planes == 1 || planes == 3 else {
+            throw Error.unsupported("\(bitsPerPixel)bpp with \(planes) plane(s).")
+        }
+        var rasterEnd = bytes.count
+        if planes == 1 {
+            guard bytes.count >= 128 + 769, bytes[bytes.count - 769] == 0x0C else {
+                throw Error.unsupported("8-bit indexed image without a palette trailer.")
+            }
+            rasterEnd -= 769
+        }
+        // Even a maximally compressed run can supply only 63 scanline bytes.
+        // This conservative bound rejects tiny truncated files before their
+        // declared dimensions can cause a large pixel allocation.
+        let requiredSamples = height * planes * bytesPerLine
+        guard rasterEnd - 128 >= (requiredSamples + 62) / 63 else { throw Error.truncated }
+        guard RasterSizeGuard.fits(width: width, height: height, bytesPerPixel: 8,
+                                  additionalBytes: Double(bytes.count) * 2 + Double(planes * bytesPerLine)) else {
+            throw Error.unsupported("Image too large for available resources.")
+        }
 
         var out = [UInt8](repeating: 255, count: width * height * 4)
-        var reader = RLEReader(bytes: bytes, start: 128)
+        var reader = RLEReader(bytes: bytes, start: 128, end: rasterEnd)
 
-        if bitsPerPixel == 8, planes >= 3 {
+        if planes == 3 {
             var line = [UInt8](repeating: 0, count: planes * bytesPerLine)
             for y in 0..<height {
                 for i in 0..<line.count { line[i] = try reader.next() }
@@ -50,10 +69,7 @@ public enum PCXCodec {
                     out[d + 2] = line[2 * bytesPerLine + x]
                 }
             }
-        } else if bitsPerPixel == 8, planes == 1 {
-            guard bytes.count >= 769, bytes[bytes.count - 769] == 0x0C else {
-                throw Error.unsupported("8-bit indexed image without a palette trailer.")
-            }
+        } else {
             let palette = bytes.count - 768
             var line = [UInt8](repeating: 0, count: bytesPerLine)
             for y in 0..<height {
@@ -66,19 +82,18 @@ public enum PCXCodec {
                     out[d + 2] = bytes[base + 2]
                 }
             }
-        } else {
-            throw Error.unsupported("\(bitsPerPixel)bpp with \(planes) plane(s).")
         }
 
         return try RGBAImage.make(from: out, width: width, height: height)
     }
 
     public static func encode(_ image: CGImage) throws -> Data {
+        guard image.width > 0, image.width <= 0xFFFE, image.height > 0, image.height <= 0x1_0000 else {
+            throw Error.unsupported("Image dimensions exceed the PCX header limits.")
+        }
+        let bytesPerLine = image.width + (image.width & 1)
         let buffer = try RGBABuffer.tightlyPacked(from: image)
         let width = buffer.width, height = buffer.height
-        guard width <= 0xFFFF else { throw Error.unsupported("Image wider than 65535 pixels.") }
-
-        let bytesPerLine = width + (width & 1)
         var header = [UInt8](repeating: 0, count: 128)
         header[0] = 0x0A
         header[1] = 5
@@ -134,21 +149,23 @@ public enum PCXCodec {
 /// by that many copies of one value.
 private struct RLEReader {
     let bytes: [UInt8]
+    let end: Int
     var position: Int
     var run = 0
     var value: UInt8 = 0
 
-    init(bytes: [UInt8], start: Int) {
+    init(bytes: [UInt8], start: Int, end: Int) {
         self.bytes = bytes
         self.position = start
+        self.end = end
     }
 
     mutating func next() throws -> UInt8 {
         if run > 0 { run -= 1; return value }
-        guard position < bytes.count else { throw PCXCodec.Error.truncated }
+        guard position < end else { throw PCXCodec.Error.truncated }
         let byte = bytes[position]; position += 1
         guard byte & 0xC0 == 0xC0 else { return byte }
-        guard position < bytes.count else { throw PCXCodec.Error.truncated }
+        guard position < end else { throw PCXCodec.Error.truncated }
         value = bytes[position]; position += 1
         run = max(Int(byte & 0x3F), 1) - 1
         return value

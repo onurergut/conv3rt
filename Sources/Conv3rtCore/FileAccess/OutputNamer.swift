@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Chooses collision-free output file names.
 ///
@@ -19,12 +20,11 @@ public final class OutputNamer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        let fm = FileManager.default
         let safeExt = ext.hasPrefix(".") ? String(ext.dropFirst()) : ext
 
         var candidate = directory.appendingPathComponent(filename(baseName, safeExt))
         var counter = 1
-        while exists(candidate, fm: fm) || reserved.contains(key(candidate)) {
+        while exists(candidate) || reserved.contains(key(candidate)) {
             candidate = directory.appendingPathComponent(filename("\(baseName)-\(counter)", safeExt))
             counter += 1
         }
@@ -46,7 +46,13 @@ public final class OutputNamer: @unchecked Sendable {
         url.path.precomposedStringWithCanonicalMapping.lowercased()
     }
 
-    private func exists(_ url: URL, fm: FileManager) -> Bool {
-        fm.fileExists(atPath: url.path)
+    private func exists(_ url: URL) -> Bool {
+        // Inspect the directory entry itself: fileExists follows links and
+        // reports false for a dangling link, which is still an occupied name.
+        var attributes = stat()
+        return url.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return false }
+            return lstat(path, &attributes) == 0
+        }
     }
 }

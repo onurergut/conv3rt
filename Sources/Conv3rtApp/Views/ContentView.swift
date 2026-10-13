@@ -27,16 +27,19 @@ struct ContentView: View {
                 Button {
                     presentOpenPanel(folders: false)
                 } label: { Label("Add Files", systemImage: "plus") }
+                    .disabled(model.isRunning)
                     .help("Add image files")
 
                 Button {
                     presentOpenPanel(folders: true)
                 } label: { Label("Add Folder", systemImage: "folder") }
+                    .disabled(model.isRunning)
                     .help("Add every image in a folder")
 
                 Button {
                     model.pasteFromClipboard()
                 } label: { Label("Paste", systemImage: "doc.on.clipboard") }
+                    .disabled(model.isRunning)
                     .help("Paste an image from the clipboard")
             }
             ToolbarItem { Spacer() }
@@ -177,7 +180,7 @@ struct ContentView: View {
                     Label("Convert", systemImage: "arrow.right.circle.fill")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(model.convertibleCount == 0 || model.outputDirectory == nil)
+                .disabled(model.isImporting || model.convertibleCount == 0 || model.outputDirectory == nil)
                 .keyboardShortcut(.return, modifiers: .command)
             }
         }
@@ -307,10 +310,12 @@ struct ContentView: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 } else if case .succeeded = item.state {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                } else if item.loadError != nil {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
                 } else if case .failed = item.state {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
                 }
-                Text(item.statusText).lineLimit(1)
+                Text(item.statusText).lineLimit(1).help(item.statusText)
             }
             if let plan = item.plan, let first = plan.blockingChanges.first ?? plan.warnings.first {
                 Text(first.message).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -321,6 +326,7 @@ struct ContentView: View {
                 Button("Reveal in Finder") { model.reveal(item.resultURLs) }
             }
             Button("Remove", role: .destructive) { model.remove(item) }
+                .disabled(model.isRunning)
         }
     }
 
@@ -338,7 +344,7 @@ struct ContentView: View {
                     .disabled(model.isRunning)
             }
             if model.items.contains(where: { if case .failed = $0.state { return true }; return false }) {
-                Button("Retry Failed") { model.retryFailed() }.disabled(model.isRunning)
+                Button("Retry Failed") { model.retryFailed() }.disabled(model.isRunning || model.isImporting)
             }
             if !model.items.isEmpty {
                 Button("Clear") { model.clearAll() }.disabled(model.isRunning)
@@ -361,6 +367,7 @@ struct ContentView: View {
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard !model.isRunning else { return false }
         let group = DispatchGroup()
         var urls: [URL] = []
         let lock = NSLock()

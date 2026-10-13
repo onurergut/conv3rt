@@ -20,7 +20,7 @@ public enum AVIFEncoder {
                               icc: [UInt8]? = nil) throws -> Data {
         let buffer = try RGBABuffer.tightlyPacked(from: image)
         let iccBytes: [UInt8] = icc
-            ?? image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? []
+            ?? buffer.colorSpace.copyICCData().map { Array($0 as Data) } ?? []
 
         var out: UnsafeMutablePointer<UInt8>?
         var outSize = 0

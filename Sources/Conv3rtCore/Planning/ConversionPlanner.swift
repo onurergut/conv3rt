@@ -44,6 +44,12 @@ public struct ConversionPlanner: Sendable {
                                  message: "Image too large for available resources.",
                                  code: "resource.tooLarge"))
         }
+        if target.id == "webp" && (max(source.pixelWidth, source.canvasWidth) > 16_383
+                                  || max(source.pixelHeight, source.canvasHeight) > 16_383) {
+            changes.append(.init(severity: .blocking,
+                                 message: "WebP supports images up to 16,383 pixels on each side.",
+                                 code: "target.dimensions"))
+        }
 
         // --- CMYK / exotic color models -----------------------------------------
         if source.colorModel == "CMYK" {
@@ -78,36 +84,61 @@ public struct ConversionPlanner: Sendable {
         let targetPreserves = source.isAnimated ? target.supportsAnimation
                                                 : (source.pageCount > 1 ? target.supportsMultiPage : true)
         var expands = false
+        func describePreservation() {
+            if source.isAnimated && !timingIsRepresentable(source, target: target) {
+                changes.append(.init(severity: lossless ? .blocking : .warning,
+                                     message: "Animation timing or loop count cannot be preserved exactly. Highest Quality may use fallback timing or round frame durations.",
+                                     code: "animation.timing"))
+            } else {
+                let message = source.isAnimated
+                    ? "All \(total) frames and their timing will be preserved."
+                    : "All \(total) pages will be preserved."
+                changes.append(.init(severity: .info, message: message, code: "frames.preserved"))
+            }
+        }
         if total > 1 {
             switch settings.framePolicy {
             case .undecided:
                 if !targetPreserves {
+                    let message = source.isAnimated && lossless
+                        ? "\(target.displayName) cannot preserve this animation. Choose an animation format, or switch to Highest Quality to export individual frames."
+                        : "\(target.displayName) cannot store all \(total) \(kind). Choose to export all \(kind) or use the first one."
                     changes.append(.init(severity: .blocking,
-                                         message: "\(target.displayName) cannot store all \(total) \(kind). Choose to export all \(kind) or use the first one.",
+                                         message: message,
                                          code: "frames.decisionRequired"))
                 } else {
-                    changes.append(.init(severity: .info,
-                                         message: "All \(total) \(kind) and their timing will be preserved.",
-                                         code: "frames.preserved"))
+                    describePreservation()
                 }
             case .firstOnly:
                 // Discarding frames/pages is a content loss independent of
                 // whether the target could have held them, so it can never be
                 // offered as Lossless.
                 let sev: ChangeSeverity = lossless ? .blocking : .warning
+                let losslessAdvice = source.isAnimated && !targetPreserves
+                    ? "Switch to Highest Quality."
+                    : "Switch to Highest Quality or export all \(kind)."
                 let msg = lossless
-                    ? "Using only the first of \(total) \(kind) is not lossless. Switch to Highest Quality or export all \(kind)."
+                    ? "Using only the first of \(total) \(kind) is not lossless. \(losslessAdvice)"
                     : "Only the first of \(total) \(kind) will be used; the rest are discarded."
                 changes.append(.init(severity: sev, message: msg, code: "frames.firstOnly"))
             case .exportAll:
                 if targetPreserves {
-                    changes.append(.init(severity: .info,
-                                         message: "All \(total) \(kind) and their timing will be preserved.",
-                                         code: "frames.preserved"))
+                    describePreservation()
                 } else {
                     expands = true
-                    changes.append(.init(severity: .info,
-                                         message: "All \(total) \(kind) will be written as separate files.",
+                    let message: String
+                    let severity: ChangeSeverity
+                    if source.isAnimated {
+                        severity = lossless ? .blocking : .warning
+                        message = lossless
+                            ? "Separate frame files discard animation timing, loop count and container structure. Switch to Highest Quality to export individual frames."
+                            : "All \(total) frames will be written as separate files. Animation timing, loop count and container structure are not retained."
+                    } else {
+                        severity = .info
+                        message = "All \(total) pages will be written as separate files."
+                    }
+                    changes.append(.init(severity: severity,
+                                         message: message,
                                          code: "frames.exportAll"))
                 }
             }
@@ -158,10 +189,14 @@ public struct ConversionPlanner: Sendable {
         case .remove:
             changes.append(.init(severity: .info, message: "Metadata will be removed (color profile is kept).", code: "meta.remove"))
         case .removeLocation:
+            let retained = target.supportsMetadata ? "; other metadata is kept." : "."
             if source.hasGPS {
-                changes.append(.init(severity: .info, message: "GPS location will be removed; other metadata is kept.", code: "meta.removeGPS"))
+                changes.append(.init(severity: .info, message: "GPS location will be removed\(retained)", code: "meta.removeGPS"))
             } else {
-                changes.append(.init(severity: .info, message: "No GPS location found; other metadata is kept.", code: "meta.noGPS"))
+                changes.append(.init(severity: .info, message: "No GPS location found\(retained)", code: "meta.noGPS"))
+            }
+            if !target.supportsMetadata && (source.hasEXIF || source.hasGPS || source.hasIPTC || source.hasXMP) {
+                changes.append(.init(severity: .warning, message: "\(target.displayName) can store only limited metadata.", code: "meta.limited"))
             }
         case .keep:
             if !target.supportsMetadata {
@@ -177,16 +212,17 @@ public struct ConversionPlanner: Sendable {
 
         // --- Orientation ---------------------------------------------------------
         if let o = source.exifOrientation, o > 1 {
-            changes.append(.init(severity: .info, message: "EXIF orientation (\(o)) is applied so the image displays correctly.", code: "orientation.applied"))
+            if ["qoi", "pcx", "pfm", "dds", "avif"].contains(target.id) {
+                changes.append(.init(severity: lossless ? .blocking : .warning,
+                                     message: "\(target.displayName) output will lose the source's display orientation.",
+                                     code: "orientation.unsupported"))
+            } else {
+                changes.append(.init(severity: .info, message: "Display orientation will be preserved.",
+                                     code: "orientation.preserved"))
+            }
         }
 
         return build(source, target, settings, changes, isStructural: isStructural, expands: expands)
-    }
-
-    /// Convenience: returns a plan, or the specific planning error.
-    public func planOrThrow(source: ImageInfo, target: FormatCapability,
-                            settings: ConversionSettings) -> ConversionPlan {
-        plan(source: source, target: target, settings: settings)
     }
 
     // MARK: - Helpers
@@ -217,9 +253,32 @@ public struct ConversionPlanner: Sendable {
 
     /// Estimated decoded size in bytes, computed with Double to avoid overflow.
     private func decodedBytes(_ info: ImageInfo) -> Double {
+        if let inspected = info.decodedByteCount {
+            return inspected.isFinite && inspected > 0 ? inspected : .infinity
+        }
         let frames = Double(max(max(info.frameCount, info.pageCount), 1))
-        let bytesPerPixel = Double(max(info.bitsPerPixel, 8) / 8)
+        let bytesPerPixel = ceil(Double(max(info.bitsPerPixel, 8)) / 8)
         return Double(info.pixelWidth) * Double(info.pixelHeight) * bytesPerPixel * frames
+    }
+
+    private func timingIsRepresentable(_ source: ImageInfo, target: FormatCapability) -> Bool {
+        guard source.frameDurations.count == source.frameCount,
+              let loop = source.loopCount, (0...65_535).contains(loop) else { return false }
+        let ticksPerSecond: Double
+        let maximumTicks: Double
+        switch target.id {
+        case "gif": ticksPerSecond = 100; maximumTicks = 65_535
+        case "webp": ticksPerSecond = 1_000; maximumTicks = 16_777_215
+        default: return false
+        }
+        var totalTicks = 0.0
+        for duration in source.frameDurations {
+            let ticks = duration * ticksPerSecond
+            guard duration.isFinite, duration > 0, ticks >= 1, ticks <= maximumTicks,
+                  ticks.rounded() / ticksPerSecond == duration else { return false }
+            totalTicks += ticks.rounded()
+        }
+        return target.id != "webp" || totalTicks <= Double(Int32.max)
     }
 
     private func isComplexByUTI(_ uti: String?) -> Bool {

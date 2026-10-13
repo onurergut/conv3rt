@@ -65,7 +65,11 @@ final class ScenarioTests: XCTestCase {
 
         let all = planner.plan(source: info, target: target("png"),
                                settings: ConversionSettings(mode: .lossless, framePolicy: .exportAll))
-        XCTAssertTrue(all.isConvertible)
+        XCTAssertEqual(all.status, .blocked)
+        let highestQuality = planner.plan(source: info, target: target("png"),
+                                          settings: ConversionSettings(mode: .highestQuality, framePolicy: .exportAll))
+        XCTAssertTrue(highestQuality.isConvertible)
+        XCTAssertTrue(highestQuality.expandsFramesOrPages)
     }
 
     func testAnimatedGIFtoGIFPreservesFrames() throws {

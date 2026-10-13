@@ -8,6 +8,20 @@
 #include "src/webp/mux.h"
 #include "webp/conv3rt_webp.h"
 
+typedef struct {
+    conv3rt_webp_progress_hook hook;
+    void *user_data;
+    int frame;
+    int frames;
+} ProgressContext;
+
+static int report_progress(int percent, const WebPPicture *picture) {
+    const ProgressContext *context = (const ProgressContext *)picture->user_data;
+    if (context == NULL || context->hook == NULL) return 1;
+    const int total_percent = (int)(((int64_t)context->frame * 100 + percent) / context->frames);
+    return context->hook(total_percent, context->user_data);
+}
+
 // Sets one metadata chunk on the mux. A null/empty payload is a no-op that
 // reports success so callers can pass optional metadata uniformly.
 static int mux_set_chunk(WebPMux *mux, const char *fourcc,
@@ -54,6 +68,7 @@ int conv3rt_webp_encode_rgba(const uint8_t *rgba, int width, int height, int str
                              const uint8_t *icc, size_t icc_size,
                              const uint8_t *exif, size_t exif_size,
                              const uint8_t *xmp, size_t xmp_size,
+                             conv3rt_webp_progress_hook progress, void *user_data,
                              uint8_t **out, size_t *out_size) {
     if (rgba == NULL || out == NULL || out_size == NULL || width <= 0 || height <= 0) {
         return 1;
@@ -64,9 +79,9 @@ int conv3rt_webp_encode_rgba(const uint8_t *rgba, int width, int height, int str
 
     config.lossless = lossless ? 1 : 0;
     config.exact = lossless ? 1 : 0;          // keep RGB under transparent pixels
-    config.quality = lossless ? 100.f : quality;
+    config.quality = lossless ? 75.f : quality;
     config.alpha_quality = 100;
-    config.method = 6;                          // slowest / best quality
+    config.method = lossless ? 4 : 6;
 
     if (!WebPValidateConfig(&config)) return 1;
 
@@ -75,6 +90,13 @@ int conv3rt_webp_encode_rgba(const uint8_t *rgba, int width, int height, int str
     pic.use_argb = 1;
     pic.width = width;
     pic.height = height;
+    ProgressContext context = { progress, user_data, 0, 1 };
+    pic.progress_hook = report_progress;
+    pic.user_data = &context;
+    if (progress != NULL && !progress(0, user_data)) {
+        WebPPictureFree(&pic);
+        return 2;
+    }
     if (!WebPPictureAlloc(&pic)) {
         WebPPictureFree(&pic);
         return 1;
@@ -118,6 +140,7 @@ int conv3rt_webp_encode_anim_rgba(const uint8_t *rgba_frames, int width, int hei
                                   const uint8_t *icc, size_t icc_size,
                                   const uint8_t *exif, size_t exif_size,
                                   const uint8_t *xmp, size_t xmp_size,
+                                  conv3rt_webp_progress_hook progress, void *user_data,
                                   uint8_t **out, size_t *out_size) {
     if (rgba_frames == NULL || durations_ms == NULL || frame_count <= 0
         || out == NULL || out_size == NULL || width <= 0 || height <= 0
@@ -137,14 +160,20 @@ int conv3rt_webp_encode_anim_rgba(const uint8_t *rgba_frames, int width, int hei
     const size_t frame_bytes = (size_t)height * (size_t)stride;
     int rc = 0;
     int timestamp_ms = 0;
+    ProgressContext context = { progress, user_data, 0, frame_count };
     for (int i = 0; i < frame_count; i++) {
+        context.frame = i;
+        if (progress != NULL && !progress((int)((int64_t)i * 100 / frame_count), user_data)) {
+            rc = 2;
+            break;
+        }
         WebPConfig config;
         if (!WebPConfigInit(&config)) { rc = 2; break; }
         config.lossless = lossless ? 1 : 0;
         config.exact = lossless ? 1 : 0;      // keep RGB under transparent pixels
-        config.quality = lossless ? 100.f : quality;
+        config.quality = lossless ? 75.f : quality;
         config.alpha_quality = 100;
-        config.method = 6;
+        config.method = lossless ? 4 : 6;
         if (!WebPValidateConfig(&config)) { rc = 2; break; }
 
         WebPPicture pic;
@@ -152,6 +181,8 @@ int conv3rt_webp_encode_anim_rgba(const uint8_t *rgba_frames, int width, int hei
         pic.use_argb = 1;
         pic.width = width;
         pic.height = height;
+        pic.progress_hook = report_progress;
+        pic.user_data = &context;
         if (!WebPPictureAlloc(&pic)) { WebPPictureFree(&pic); rc = 2; break; }
         if (!WebPPictureImportRGBA(&pic, rgba_frames + (size_t)i * frame_bytes, stride)) {
             WebPPictureFree(&pic);
@@ -164,7 +195,10 @@ int conv3rt_webp_encode_anim_rgba(const uint8_t *rgba_frames, int width, int hei
             break;
         }
         WebPPictureFree(&pic);
-        if (durations_ms[i] > 0) timestamp_ms += durations_ms[i];
+        if (durations_ms[i] > 0) {
+            if (durations_ms[i] > INT32_MAX - timestamp_ms) { rc = 3; break; }
+            timestamp_ms += durations_ms[i];
+        }
     }
 
     // Flush with a null frame so the last frame's duration is honored.

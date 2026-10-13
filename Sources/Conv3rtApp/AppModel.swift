@@ -16,6 +16,9 @@ final class AppModel: ObservableObject {
     private let presetStore: PresetStore
     private var runner = BatchRunner()
     private var itemChanges: AnyCancellable?
+    private var importTask: Task<Void, Never>?
+    private var importGeneration = UUID()
+    private var pendingImports: [(urls: [URL], load: Bool)] = []
 
     @Published var items: [ImportItem] = [] {
         didSet {
@@ -25,6 +28,7 @@ final class AppModel: ObservableObject {
         }
     }
     @Published var isRunning = false
+    @Published private(set) var isImporting = false
     @Published var progress: Double = 0
     @Published var statusLine: String = "Add images to begin."
     @Published var lastError: String?
@@ -156,24 +160,53 @@ final class AppModel: ObservableObject {
     // MARK: - Import
 
     func addFiles(_ urls: [URL], load: Bool = true) {
-        let result = scanner.scan(urls: urls)
-        var additions: [ImportItem] = []
-        for url in result.imageFiles where !items.contains(where: { $0.url == url }) {
-            additions.append(ImportItem(url: url))
+        guard !isRunning, !urls.isEmpty else { return }
+        pendingImports.append((urls, load))
+        guard importTask == nil else { return }
+        isImporting = true
+        statusLine = "Looking for images…"
+        let generation = importGeneration
+        importTask = Task { await processImports(generation: generation) }
+    }
+
+    private func processImports(generation: UUID) async {
+        while generation == importGeneration, !pendingImports.isEmpty {
+            let request = pendingImports.removeFirst()
+            let scanner = scanner
+            let existing = items.map(\.url)
+            let scan = Task.detached(priority: .userInitiated) {
+                scanner.scan(urls: request.urls, excluding: existing)
+            }
+            let result = await withTaskCancellationHandler {
+                await scan.value
+            } onCancel: {
+                scan.cancel()
+            }
+            guard !Task.isCancelled, generation == importGeneration else { return }
+            var seen = Set(items.map(\.url))
+            let additions = result.imageFiles.compactMap { url -> ImportItem? in
+                guard seen.insert(url).inserted else { return nil }
+                return ImportItem(url: url)
+            }
+            items.append(contentsOf: additions)
+            if request.load { await load(additions) }
+            guard !Task.isCancelled, generation == importGeneration else { return }
+            recomputePlans()
+            if !result.skipped.isEmpty {
+                statusLine = "Added \(additions.count). Skipped \(result.skipped.count) unreadable or unsupported input(s)."
+            } else {
+                statusLine = additions.isEmpty ? "No new images found." : "Added \(additions.count) file(s)."
+            }
         }
-        if !additions.isEmpty { items.append(contentsOf: additions) }
-        let added = additions.count
-        if !result.skipped.isEmpty {
-            statusLine = "Added \(added). Skipped \(result.skipped.count) unsupported file(s)."
-        } else {
-            statusLine = added > 0 ? "Added \(added) file(s)." : "No new images found."
-        }
-        if load { Task { await loadAll() } }
+        guard generation == importGeneration else { return }
+        isImporting = false
+        importTask = nil
     }
 
     /// Entry point for Finder Quick Actions / Open With: import, wait for
     /// inspection, then convert with the current settings.
     func handleService(_ urls: [URL]) {
+        guard !isRunning else { return }
         if outputDirectory == nil, let first = urls.first {
             // No folder chosen yet: default to the source's own folder so a
             // Quick Action produces a result without any dialog.
@@ -183,8 +216,10 @@ final class AppModel: ObservableObject {
     }
 
     private func importAndConvert(_ urls: [URL]) async {
-        addFiles(urls, load: false)
-        await loadAll()
+        let generation = importGeneration
+        addFiles(urls)
+        await importTask?.value
+        guard generation == importGeneration else { return }
         guard outputDirectory != nil else {
             lastError = "Choose an output folder first."
             return
@@ -195,6 +230,7 @@ final class AppModel: ObservableObject {
     func addFolder(_ url: URL) { addFiles([url]) }
 
     func pasteFromClipboard() {
+        guard !isRunning else { return }
         let pb = NSPasteboard.general
         // Prefer a real image representation over file URLs.
         let imageTypes: [NSPasteboard.PasteboardType] = [.png, .tiff]
@@ -218,22 +254,37 @@ final class AppModel: ObservableObject {
     }
 
     func remove(_ item: ImportItem) {
+        guard !isRunning else { return }
         items.removeAll { $0.id == item.id }
     }
 
     func clearAll() {
+        guard !isRunning else { return }
+        importGeneration = UUID()
+        importTask?.cancel()
+        importTask = nil
+        pendingImports.removeAll()
+        isImporting = false
         items.removeAll()
         statusLine = "Add images to begin."
         progress = 0
     }
 
-    private func loadAll() async {
+    private func load(_ additions: [ImportItem]) async {
         await withTaskGroup(of: Void.self) { group in
-            for item in items {
-                group.addTask { await item.load() }
+            var next = 0
+            for item in additions.prefix(4) {
+                group.addTask { if !Task.isCancelled { await item.load() } }
+                next += 1
+            }
+            while await group.next() != nil {
+                if Task.isCancelled { group.cancelAll(); break }
+                guard next < additions.count else { continue }
+                let item = additions[next]
+                next += 1
+                group.addTask { if !Task.isCancelled { await item.load() } }
             }
         }
-        recomputePlans()
     }
 
     // MARK: - Planning
@@ -273,7 +324,11 @@ final class AppModel: ObservableObject {
     var blockedCount: Int { items.filter { $0.plan?.status == .blocked }.count }
 
     func startConversion() {
-        guard !isRunning else { return }
+        startConversion(items: items)
+    }
+
+    private func startConversion(items candidates: [ImportItem]) {
+        guard !isRunning, !isImporting else { return }
         guard let output = outputDirectory else {
             lastError = "Choose an output folder first."
             return
@@ -283,10 +338,10 @@ final class AppModel: ObservableObject {
             lastError = "The output folder is unavailable. Choose another folder."
             return
         }
-        let jobs: [ConversionJob] = items.compactMap { item in
+        let jobs: [ConversionJob] = candidates.compactMap { item in
             guard let info = item.info, let plan = item.plan, plan.status.isConvertible else { return nil }
             let sub = keepFolderStructure ? item.url.deletingLastPathComponent().lastPathComponent : nil
-            return ConversionJob(source: item.url, info: info, plan: plan, outputSubdirectory: sub)
+            return ConversionJob(id: item.id, source: item.url, info: info, plan: plan, outputSubdirectory: sub)
         }
         guard !jobs.isEmpty else {
             lastError = "No convertible files. Check the format and quality settings."
@@ -297,38 +352,54 @@ final class AppModel: ObservableObject {
         isRunning = true
         progress = 0
         statusLine = "Converting \(jobs.count) file(s)…"
-        for item in items { item.state = .pending }
-
-        let jobToSource = Dictionary(uniqueKeysWithValues: jobs.map { ($0.id, $0.source) })
-        let itemBySource = Dictionary(uniqueKeysWithValues: items.map { ($0.url, $0) })
+        let itemByID = Dictionary(uniqueKeysWithValues: candidates.map { ($0.id, $0) })
+        var states = Dictionary(uniqueKeysWithValues: jobs.map { ($0.id, ConversionJobState.pending) })
+        for job in jobs { itemByID[job.id]?.state = .pending }
+        let batchRunner = runner
 
         Task {
-            for await event in runner.run(jobs: jobs, outputDirectory: output, registry: registry) {
-                progress = event.fraction
-                if let url = jobToSource[event.jobID] {
-                    itemBySource[url]?.state = event.state
-                }
+            var aggregateProgress = 0.0
+            for await event in batchRunner.run(jobs: jobs, outputDirectory: output, registry: registry) {
+                aggregateProgress += Self.progressValue(event.state)
+                    - Self.progressValue(states[event.jobID] ?? .pending)
+                states[event.jobID] = event.state
+                itemByID[event.jobID]?.state = event.state
+                progress = min(max(aggregateProgress / Double(jobs.count), 0), 1)
             }
+            for job in jobs {
+                if case .pending = states[job.id] { states[job.id] = .canceled; itemByID[job.id]?.state = .canceled }
+                if case .running = states[job.id] { states[job.id] = .canceled; itemByID[job.id]?.state = .canceled }
+            }
+            let done = states.values.filter { if case .succeeded = $0 { return true }; return false }.count
+            let failed = states.values.filter { if case .failed = $0 { return true }; return false }.count
+            let canceled = states.values.filter { if case .canceled = $0 { return true }; return false }.count
+            progress = Double(done + failed) / Double(jobs.count)
+            statusLine = canceled > 0
+                ? "Canceled: \(done) succeeded, \(failed) failed, \(canceled) canceled."
+                : "Finished: \(done) succeeded, \(failed) failed."
             isRunning = false
-            let done = items.filter { if case .succeeded = $0.state { return true }; return false }.count
-            let failed = items.filter { if case .failed = $0.state { return true }; return false }.count
-            progress = 1
-            statusLine = "Finished: \(done) succeeded, \(failed) failed."
-            NSSound(named: "Glass")?.play()
+            if canceled == 0 { NSSound(named: "Glass")?.play() }
             NSApp.activate(ignoringOtherApps: true)
         }
     }
 
+    private static func progressValue(_ state: ConversionJobState) -> Double {
+        switch state {
+        case .succeeded, .failed: return 1
+        case .running(let fraction): return min(max(fraction, 0), 0.99)
+        case .pending, .canceled: return 0
+        }
+    }
+
     func cancel() {
+        guard isRunning else { return }
         runner.cancel()
         statusLine = "Canceling…"
     }
 
     func retryFailed() {
-        for item in items {
-            if case .failed = item.state { item.state = .pending }
-        }
-        startConversion()
+        let failed = items.filter { if case .failed = $0.state { return true }; return false }
+        startConversion(items: failed)
     }
 
     func reveal(_ urls: [URL]) {

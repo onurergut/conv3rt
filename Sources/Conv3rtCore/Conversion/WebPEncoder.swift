@@ -19,16 +19,21 @@ public enum WebPEncoder {
     ///   written into the `EXIF` chunk, or nil.
     /// - Parameter xmp: XMP packet written into the `XMP ` chunk, or nil.
     public static func encode(image: CGImage, lossless: Bool, quality: Double,
-                              exif: [UInt8]? = nil, xmp: [UInt8]? = nil) throws -> Data {
+                              exif: [UInt8]? = nil, xmp: [UInt8]? = nil,
+                              isCancelled: @escaping () -> Bool = { false },
+                              progress: (@Sendable (Double) -> Void)? = nil) throws -> Data {
+        if isCancelled() { throw ConversionError.canceled }
+        guard image.width <= 16383, image.height <= 16383 else {
+            throw ConversionError.encodeFailed("WebP dimensions must not exceed 16383 pixels.")
+        }
         let buffer = try RGBABuffer.tightlyPacked(from: image)
-        // The source ICC only describes the bytes if they are the source's own
-        // samples; the 8-bit sRGB fallback produces different bytes.
-        let icc: [UInt8] = buffer.preservedSamples
-            ? (image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? [])
-            : []
+        let icc: [UInt8] = buffer.colorSpace.copyICCData().map { Array($0 as Data) } ?? []
 
         var out: UnsafeMutablePointer<UInt8>?
         var outSize = 0
+        let control = EncodingControl(isCancelled: isCancelled, progress: progress)
+        let context = Unmanaged.passUnretained(control).toOpaque()
+        defer { withExtendedLifetime(control) {} }
 
         func run(_ iccPtr: UnsafePointer<UInt8>?, _ iccLen: Int,
                  _ exifPtr: UnsafePointer<UInt8>?, _ exifLen: Int,
@@ -38,6 +43,7 @@ public enum WebPEncoder {
                                          Int32(buffer.width * 4), lossless ? 1 : 0,
                                          Float(max(0, min(quality, 1)) * 100),
                                          iccPtr, iccLen, exifPtr, exifLen, xmpPtr, xmpLen,
+                                         reportProgress, context,
                                          &out, &outSize)
             }
         }
@@ -56,6 +62,10 @@ public enum WebPEncoder {
             }
         }
 
+        if isCancelled() {
+            if let out { free(out) }
+            throw ConversionError.canceled
+        }
         guard rc == 0, let out else {
             throw ConversionError.encodeFailed("libwebp failed (code \(rc)).")
         }
@@ -73,12 +83,25 @@ public enum WebPEncoder {
     /// - Parameter loopCount: number of animation loops; 0 repeats forever.
     public static func encodeAnimated(frames: [(image: CGImage, duration: Double)],
                                       lossless: Bool, quality: Double, loopCount: Int,
-                                      exif: [UInt8]? = nil, xmp: [UInt8]? = nil) throws -> Data {
+                                      exif: [UInt8]? = nil, xmp: [UInt8]? = nil,
+                                      isCancelled: @escaping () -> Bool = { false },
+                                      progress: (@Sendable (Double) -> Void)? = nil) throws -> Data {
+        if isCancelled() { throw ConversionError.canceled }
         guard let first = frames.first else {
             throw ConversionError.encodeFailed("Animated WebP needs at least one frame.")
         }
         let firstBuffer = try RGBABuffer.tightlyPacked(from: first.image)
         let width = firstBuffer.width, height = firstBuffer.height
+        guard width <= 16383, height <= 16383, frames.count <= Int(Int32.max),
+              RasterSizeGuard.fits(width: width, height: height, bytesPerPixel: 8,
+                                  additionalBytes: Double(width) * Double(height) * 4 * Double(frames.count)),
+              loopCount >= 0, loopCount <= 65535,
+              frames.allSatisfy({ $0.duration.isFinite && ($0.duration * 1000).rounded() >= 1
+                    && ($0.duration * 1000).rounded() <= 16_777_215
+                    && (!lossless || abs($0.duration * 1000 - ($0.duration * 1000).rounded()) < 1e-8) }),
+              frames.reduce(0.0, { $0 + ($1.duration * 1000).rounded() }) <= Double(Int32.max) else {
+            throw ConversionError.encodeFailed("The WebP animation dimensions, duration or loop count are unsupported.")
+        }
 
         // Frames are laid back to back in one buffer so a single pointer reaches
         // all of them; the encoder indexes by height * stride.
@@ -87,6 +110,7 @@ public enum WebPEncoder {
         var durationsMs: [Int32] = [Self.millis(first.duration)]
         durationsMs.reserveCapacity(frames.count)
         for f in frames.dropFirst() {
+            if isCancelled() { throw ConversionError.canceled }
             let buffer = try RGBABuffer.tightlyPacked(from: f.image)
             guard buffer.width == width, buffer.height == height else {
                 throw ConversionError.encodeFailed("Animated WebP frames must share one size.")
@@ -95,12 +119,13 @@ public enum WebPEncoder {
             durationsMs.append(Self.millis(f.duration))
         }
 
-        let icc: [UInt8] = firstBuffer.preservedSamples
-            ? (first.image.colorSpace?.copyICCData().map { Array($0 as Data) } ?? [])
-            : []
+        let icc: [UInt8] = firstBuffer.colorSpace.copyICCData().map { Array($0 as Data) } ?? []
 
         var out: UnsafeMutablePointer<UInt8>?
         var outSize = 0
+        let control = EncodingControl(isCancelled: isCancelled, progress: progress)
+        let context = Unmanaged.passUnretained(control).toOpaque()
+        defer { withExtendedLifetime(control) {} }
         func withOpt<T>(_ a: [UInt8]?, _ body: (UnsafePointer<UInt8>?, Int) -> T) -> T {
             guard let a else { return body(nil, 0) }
             return a.withUnsafeBufferPointer { body($0.baseAddress, $0.count) }
@@ -117,6 +142,7 @@ public enum WebPEncoder {
                                 lossless ? 1 : 0, Float(max(0, min(quality, 1)) * 100),
                                 Int32(loopCount),
                                 iccPtr, iccLen, exifPtr, exifLen, xmpPtr, xmpLen,
+                                reportProgress, context,
                                 &out, &outSize)
                         }
                     }
@@ -124,6 +150,10 @@ public enum WebPEncoder {
             }
         }
 
+        if isCancelled() {
+            if let out { free(out) }
+            throw ConversionError.canceled
+        }
         guard rc == 0, let out else {
             throw ConversionError.encodeFailed("libwebp failed (code \(rc)).")
         }
@@ -136,6 +166,30 @@ public enum WebPEncoder {
         let ms = (seconds * 1000).rounded()
         return Int32(max(0, min(ms, Double(Int32.max))))
     }
+
+    private final class EncodingControl {
+        let isCancelled: () -> Bool
+        let progress: (@Sendable (Double) -> Void)?
+        private var lastPercent: Int32 = -1
+        init(isCancelled: @escaping () -> Bool, progress: (@Sendable (Double) -> Void)?) {
+            self.isCancelled = isCancelled
+            self.progress = progress
+        }
+
+        func report(_ percent: Int32) {
+            guard percent > lastPercent else { return }
+            lastPercent = percent
+            progress?(Double(percent) / 100)
+        }
+    }
+
+    private static let reportProgress: @convention(c) (Int32, UnsafeMutableRawPointer?) -> Int32 = { percent, context in
+        guard let context else { return 1 }
+        let control = Unmanaged<EncodingControl>.fromOpaque(context).takeUnretainedValue()
+        if control.isCancelled() { return 0 }
+        control.report(percent)
+        return control.isCancelled() ? 0 : 1
+    }
 }
 
 /// Extracts 8-bit non-premultiplied RGBA bytes from a `CGImage`, preserving the
@@ -146,65 +200,81 @@ enum RGBABuffer {
         let bytes: [UInt8]
         let width: Int
         let height: Int
-        /// True when the bytes are the image's own samples, so its ICC profile
-        /// still describes them. False when the 8-bit sRGB fallback was used.
-        let preservedSamples: Bool
+        let colorSpace: CGColorSpace
     }
 
     static func tightlyPacked(from image: CGImage) throws -> Buffer {
         let width = image.width, height = image.height
-        guard width > 0, height > 0 else { throw ConversionError.encodeFailed("Empty image.") }
+        guard RasterSizeGuard.fits(width: width, height: height, bytesPerPixel: 8) else {
+            throw ConversionError.encodeFailed("The RGB conversion buffer is too large or has invalid dimensions.")
+        }
 
         let orderBits = image.bitmapInfo.rawValue & CGBitmapInfo.byteOrderMask.rawValue
-        let isHostOrder = orderBits == 0
-            || orderBits == CGBitmapInfo.byteOrder32Little.rawValue
-            || orderBits == CGBitmapInfo.byteOrder16Little.rawValue
+        let reversed = orderBits == CGBitmapInfo.byteOrder32Little.rawValue
 
         // Fast path: 8-bit RGB(A) image whose samples are already what we need.
         if image.bitsPerComponent == 8,
            let space = image.colorSpace, space.model == .rgb,
-           let cfData = image.dataProvider?.data,
-           isHostOrder {
+           let cfData = image.dataProvider?.data {
             let ptr = CFDataGetBytePtr(cfData)!
             let srcStride = image.bytesPerRow
-            var out = [UInt8](repeating: 255, count: width * height * 4)
-
-            switch image.alphaInfo {
-            case .none:
-                for y in 0..<height {
-                    for x in 0..<width {
-                        let s = y * srcStride + x * 3
-                        let d = (y * width + x) * 4
-                        out[d + 0] = ptr[s + 0]
-                        out[d + 1] = ptr[s + 1]
-                        out[d + 2] = ptr[s + 2]
-                        out[d + 3] = 255
-                    }
-                }
-                return Buffer(bytes: out, width: width, height: height, preservedSamples: true)
-            case .last:   // RGBA, non-premultiplied — the exact case we must preserve.
-                for y in 0..<height {
-                    let s = y * srcStride
-                    let d = y * width * 4
-                    for i in 0..<(width * 4) { out[d + i] = ptr[s + i] }
-                }
-                return Buffer(bytes: out, width: width, height: height, preservedSamples: true)
-            default:
-                break // premultiplied / gray / other → general path below
+            let channels = image.bitsPerPixel / 8
+            guard channels == 3 || channels == 4,
+                  srcStride >= width * channels,
+                  srcStride <= CFDataGetLength(cfData) / height else {
+                throw ConversionError.encodeFailed("Unsupported RGB sample layout.")
             }
+            var out = [UInt8](repeating: 255, count: width * height * 4)
+            let first: Bool
+            let alpha: Bool
+            let premultiplied: Bool
+            switch image.alphaInfo {
+            case .none, .noneSkipLast:
+                first = false; alpha = false; premultiplied = false
+            case .noneSkipFirst:
+                first = true; alpha = false; premultiplied = false
+            case .last:
+                first = false; alpha = true; premultiplied = false
+            case .first:
+                first = true; alpha = true; premultiplied = false
+            case .premultipliedLast:
+                first = false; alpha = true; premultiplied = true
+            case .premultipliedFirst:
+                first = true; alpha = true; premultiplied = true
+            default:
+                throw ConversionError.encodeFailed("Unsupported RGB alpha layout.")
+            }
+            for y in 0..<height {
+                for x in 0..<width {
+                    let s = y * srcStride + x * channels
+                    let d = (y * width + x) * 4
+                    func component(_ index: Int) -> UInt8 {
+                        ptr[s + (reversed && channels == 4 ? 3 - index : index)]
+                    }
+                    let a = alpha ? component(first ? 0 : 3) : 255
+                    for channel in 0..<3 {
+                        let value = component(channel + (first ? 1 : 0))
+                        out[d + channel] = premultiplied && a > 0
+                            ? UInt8(min(255, (Int(value) * 255 + Int(a) / 2) / Int(a))) : value
+                    }
+                    out[d + 3] = a
+                }
+            }
+            return Buffer(bytes: out, width: width, height: height, colorSpace: space)
         }
 
-        // General path: draw into a premultiplied RGBA context. Note: this
-        // cannot recover RGB under alpha=0 (Core Graphics bitmap contexts are
-        // always premultiplied), which is why the fast path exists.
-        let space = CGColorSpace(name: CGColorSpace.sRGB)!
-        var out = [UInt8](repeating: 0, count: width * height * 4)
-        out.withUnsafeMutableBytes { raw in
-            let ctx = CGContext(data: raw.baseAddress, width: width, height: height,
-                                bitsPerComponent: 8, bytesPerRow: width * 4, space: space,
-                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-            ctx?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let space = image.colorSpace?.model == .rgb ? image.colorSpace! : CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let context = CGContext(data: nil, width: width, height: height,
+                                      bitsPerComponent: 8, bytesPerRow: width * 4, space: space,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw ConversionError.encodeFailed("Could not allocate the RGB conversion buffer.")
         }
-        return Buffer(bytes: out, width: width, height: height, preservedSamples: false)
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let rendered = context.makeImage() else {
+            throw ConversionError.encodeFailed("Could not prepare the RGB samples.")
+        }
+        let buffer = try tightlyPacked(from: rendered)
+        return Buffer(bytes: buffer.bytes, width: width, height: height,
+                      colorSpace: space)
     }
 }

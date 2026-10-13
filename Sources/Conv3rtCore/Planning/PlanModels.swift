@@ -65,18 +65,3 @@ public struct ConversionPlan: Equatable, Sendable {
         }
     }
 }
-
-/// Reason a job cannot be planned at all (before per-feature analysis).
-public enum PlanError: Error, LocalizedError, Sendable {
-    case targetNotWritable(String)
-    case needsFrameDecision(Int, String) // count, kind ("frames"/"pages")
-    case losslessUnavailable(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case .targetNotWritable(let name): return "\(name) is not a supported output format on this system."
-        case .needsFrameDecision(let n, let kind): return "The target cannot store \(n) \(kind); choose how to handle them."
-        case .losslessUnavailable(let name): return "Lossless conversion is not available for \(name)."
-        }
-    }
-}

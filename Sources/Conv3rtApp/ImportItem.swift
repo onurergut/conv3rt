@@ -14,6 +14,9 @@ final class ImportItem: Identifiable, ObservableObject {
     @Published var state: ConversionJobState = .pending
     @Published var thumbnail: NSImage?
     @Published var loadError: String?
+    @Published private(set) var isLoading = false
+    private var hasLoaded = false
+    private var inspectionTask: Task<(ImageInfo?, NSImage?, String?), Never>?
     /// Per-file output format override. nil targets the global format.
     @Published var formatOverrideID: String?
 
@@ -28,7 +31,10 @@ final class ImportItem: Identifiable, ObservableObject {
 
     var statusText: String {
         switch state {
-        case .pending: return plan.map { $0.status == .blocked ? "Blocked" : ($0.status == .warning ? "Warning" : "Ready") } ?? "—"
+        case .pending:
+            if let loadError { return "Failed: \(loadError)" }
+            if isLoading { return "Loading…" }
+            return plan.map { $0.status == .blocked ? "Blocked" : ($0.status == .warning ? "Warning" : "Ready") } ?? "Waiting…"
         case .running(let p): return "Converting \(Int(p * 100))%"
         case .succeeded(let outs, _): return outs.count == 1 ? "Done" : "Done (\(outs.count) files)"
         case .failed(let m): return "Failed: \(m)"
@@ -43,19 +49,29 @@ final class ImportItem: Identifiable, ObservableObject {
 
     /// Loads a small thumbnail and full inspection off the main thread.
     func load() async {
-        let url = self.url
-        let result: (ImageInfo?, NSImage?, String?) = await Task.detached(priority: .userInitiated) {
-            let inspector = ImageInspector()
-            var info: ImageInfo?
-            var err: String?
-            do { info = try inspector.inspect(url: url) }
-            catch { err = error.localizedDescription }
-            let thumb = Self.thumbnail(for: url)
-            return (info, thumb, err)
-        }.value
+        guard !hasLoaded else { return }
+        if inspectionTask == nil {
+            isLoading = true
+            let url = self.url
+            inspectionTask = Task.detached(priority: .userInitiated) {
+                let inspector = ImageInspector()
+                var info: ImageInfo?
+                var err: String?
+                do { info = try inspector.inspect(url: url) }
+                catch { err = error.localizedDescription }
+                let thumb = Self.thumbnail(for: url)
+                return (info, thumb, err)
+            }
+        }
+        guard let inspectionTask else { return }
+        let result = await inspectionTask.value
+        guard !hasLoaded else { return }
         self.info = result.0
         self.thumbnail = result.1
         self.loadError = result.2
+        hasLoaded = true
+        isLoading = false
+        self.inspectionTask = nil
     }
 
     nonisolated private static func thumbnail(for url: URL) -> NSImage? {

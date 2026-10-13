@@ -35,6 +35,43 @@ public struct ImageInfo: Equatable, Sendable {
     public let hasIPTC: Bool
     public let hasXMP: Bool
 
+    /// Sum of each inspected frame/page's decoded footprint. Nil for callers
+    /// that have only summary dimensions and need a conservative estimate.
+    public let decodedByteCount: Double?
+
+    public init(url: URL, detectedUTI: String?, declaredUTI: String?, fileSize: Int64,
+                pixelWidth: Int, pixelHeight: Int, frameCount: Int, pageCount: Int,
+                frameDurations: [Double], loopCount: Int?, canvasWidth: Int, canvasHeight: Int,
+                bitsPerComponent: Int, bitsPerPixel: Int, hasAlpha: Bool, colorModel: String?,
+                colorSpaceName: String?, hasColorProfile: Bool, exifOrientation: Int?,
+                hasEXIF: Bool, hasGPS: Bool, hasIPTC: Bool, hasXMP: Bool,
+                decodedByteCount: Double? = nil) {
+        self.url = url
+        self.detectedUTI = detectedUTI
+        self.declaredUTI = declaredUTI
+        self.fileSize = fileSize
+        self.pixelWidth = pixelWidth
+        self.pixelHeight = pixelHeight
+        self.frameCount = frameCount
+        self.pageCount = pageCount
+        self.frameDurations = frameDurations
+        self.loopCount = loopCount
+        self.canvasWidth = canvasWidth
+        self.canvasHeight = canvasHeight
+        self.bitsPerComponent = bitsPerComponent
+        self.bitsPerPixel = bitsPerPixel
+        self.hasAlpha = hasAlpha
+        self.colorModel = colorModel
+        self.colorSpaceName = colorSpaceName
+        self.hasColorProfile = hasColorProfile
+        self.exifOrientation = exifOrientation
+        self.hasEXIF = hasEXIF
+        self.hasGPS = hasGPS
+        self.hasIPTC = hasIPTC
+        self.hasXMP = hasXMP
+        self.decodedByteCount = decodedByteCount
+    }
+
     /// Whether the extension disagrees with the detected content type.
     public var extensionMismatch: Bool {
         guard let declaredUTI, let detectedUTI else { return false }
