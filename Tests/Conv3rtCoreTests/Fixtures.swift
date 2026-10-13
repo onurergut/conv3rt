@@ -210,6 +210,20 @@ enum Fixtures {
         return (r.bytes, r.width, r.height, image.alphaInfo.rawValue)
     }
 
+    /// A CMYK JPEG (Image I/O can write CMYK into JPEG/TIFF).
+    static func cmykJpeg(directory: URL) throws -> URL {
+        let cs = CGColorSpaceCreateDeviceCMYK()
+        guard let ctx = CGContext(data: nil, width: 16, height: 16, bitsPerComponent: 8,
+                                  bytesPerRow: 0, space: cs,
+                                  bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
+            throw NSError(domain: "fixtures", code: 40)
+        }
+        ctx.setFillColor(cyan: 0.2, magenta: 0.5, yellow: 0.1, black: 0.0, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
+        guard let img = ctx.makeImage() else { throw NSError(domain: "fixtures", code: 41) }
+        return try write(img, uti: "public.jpeg", ext: "jpg", directory: directory, name: "cmyk")
+    }
+
     /// A PNG carrying EXIF + GPS metadata, for metadata-policy tests.
     static func pngWithMetadata(directory: URL) throws -> URL {
         let props: [CFString: Any] = [

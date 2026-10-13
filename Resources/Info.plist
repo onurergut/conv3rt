@@ -8,6 +8,8 @@
     <string>conv3rt</string>
     <key>CFBundleIdentifier</key>
     <string>com.conv3rt.app</string>
+    <key>CFBundleIconFile</key>
+    <string>conv3rt</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>

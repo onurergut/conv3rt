@@ -9,9 +9,14 @@ import Foundation
 public struct ConversionPlanner: Sendable {
 
     private let registry: CapabilityRegistry
+    /// Refuse inputs whose decoded size would exceed this. Protects against
+    /// decompression bombs and absurd dimensions. Default 4 GiB.
+    private let resourceLimitBytes: Double
 
-    public init(registry: CapabilityRegistry = .shared) {
+    public init(registry: CapabilityRegistry = .shared,
+                resourceLimitBytes: Double = 4 * 1024 * 1024 * 1024) {
         self.registry = registry
+        self.resourceLimitBytes = resourceLimitBytes
     }
 
     public func plan(source: ImageInfo, target: FormatCapability,
@@ -27,6 +32,27 @@ public struct ConversionPlanner: Sendable {
                                  message: "\(target.displayName) is not a supported output format on this system.",
                                  code: "target.notWritable"))
             return build(source, target, settings, changes, isStructural: false, expands: false)
+        }
+
+        // --- Resource guard (decompression bombs / absurd dimensions) ------------
+        if source.pixelWidth <= 0 || source.pixelHeight <= 0 {
+            changes.append(.init(severity: .blocking,
+                                 message: "The image has invalid dimensions.",
+                                 code: "resource.invalid"))
+        } else if decodedBytes(source) > resourceLimitBytes {
+            changes.append(.init(severity: .blocking,
+                                 message: "Image too large for available resources.",
+                                 code: "resource.tooLarge"))
+        }
+
+        // --- CMYK / exotic color models -----------------------------------------
+        if source.colorModel == "CMYK" {
+            let targetKeepsCMYK = ["jpeg", "tiff", "jp2"].contains(target.id)
+            if !targetKeepsCMYK {
+                changes.append(.init(severity: lossless ? .blocking : .warning,
+                                     message: "CMYK color will be converted to RGB for \(target.displayName).",
+                                     code: "color.cmyk"))
+            }
         }
 
         // --- Complex sources (RAW / PSD / SVG / PDF) -----------------------------
@@ -168,6 +194,13 @@ public struct ConversionPlanner: Sendable {
     }
 
     private func isPaletteLimited(_ id: String) -> Bool { id == "gif" }
+
+    /// Estimated decoded size in bytes, computed with Double to avoid overflow.
+    private func decodedBytes(_ info: ImageInfo) -> Double {
+        let frames = Double(max(max(info.frameCount, info.pageCount), 1))
+        let bytesPerPixel = Double(max(info.bitsPerPixel, 8) / 8)
+        return Double(info.pixelWidth) * Double(info.pixelHeight) * bytesPerPixel * frames
+    }
 
     private func isComplexByUTI(_ uti: String?) -> Bool {
         guard let uti else { return false }
