@@ -20,19 +20,25 @@ final class ComplexSourceTests: XCTestCase {
         XCTAssertGreaterThan(info.pixelWidth, 0)
     }
 
-    func testPDFToPNGIsStructuralAndAllowed() throws {
+    func testPDFToPNGIsBlockedInLosslessAndAllowedInHighestQuality() throws {
         let dir = TempDir()
         let pdf = try Fixtures.pdfFixture(directory: dir.url)
         let info = try inspector.inspect(url: pdf)
 
-        let plan = planner.plan(source: info, target: target("png"),
-                                settings: ConversionSettings(mode: .lossless, framePolicy: .exportAll))
-        XCTAssertTrue(plan.isStructural, "PDF export is a structural rasterization")
-        XCTAssertTrue(plan.isConvertible)
-        XCTAssertFalse(plan.changes.contains { $0.code == "lossless.unavailable" },
-                       "Structural sources are labeled, not blocked as 'no lossless path'")
+        // Lossless: rasterizing a structural source is never lossless, so block.
+        let losslessPlan = planner.plan(source: info, target: target("png"),
+                                        settings: ConversionSettings(mode: .lossless, framePolicy: .exportAll))
+        XCTAssertTrue(losslessPlan.isStructural, "PDF export is a structural rasterization")
+        XCTAssertEqual(losslessPlan.status, .blocked)
+        XCTAssertTrue(losslessPlan.blockingChanges.contains { $0.code == "structural.export" })
 
-        let result = try ConversionEngine().convert(plan: plan, outputDirectory: dir.url,
+        // Highest Quality: allowed, and labeled as structural.
+        let hqPlan = planner.plan(source: info, target: target("png"),
+                                  settings: ConversionSettings(mode: .highestQuality, framePolicy: .exportAll))
+        XCTAssertTrue(hqPlan.isStructural)
+        XCTAssertTrue(hqPlan.isConvertible)
+
+        let result = try ConversionEngine().convert(plan: hqPlan, outputDirectory: dir.url,
                                                     namer: OutputNamer(), target: target("png"))
         XCTAssertEqual(result.outputs.count, 1)
         XCTAssertTrue(inspector.isReadable(url: result.outputs[0]))

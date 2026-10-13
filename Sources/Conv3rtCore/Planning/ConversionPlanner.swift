@@ -58,9 +58,18 @@ public struct ConversionPlanner: Sendable {
         // --- Complex sources (RAW / PSD / SVG / PDF) -----------------------------
         if sourceCap?.isComplexSource == true || isComplexByUTI(source.detectedUTI) {
             isStructural = true
-            changes.append(.init(severity: .warning,
-                                 message: "\(sourceCap?.displayName ?? "This source") is exported as a flattened raster image; its original structure is not preserved.",
-                                 code: "structural.export"))
+            let name = sourceCap?.displayName ?? "This source"
+            if lossless {
+                // Rasterizing RAW/PSD/SVG/PDF cannot preserve the original
+                // structure, so it is never a Lossless conversion.
+                changes.append(.init(severity: .blocking,
+                                     message: "\(name) is exported as a flattened raster image; its original structure is lost. Switch to Highest Quality.",
+                                     code: "structural.export"))
+            } else {
+                changes.append(.init(severity: .warning,
+                                     message: "\(name) is exported as a flattened raster image; its original structure is not preserved.",
+                                     code: "structural.export"))
+            }
         }
 
         // --- Animation / multipage ----------------------------------------------

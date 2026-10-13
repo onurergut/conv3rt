@@ -13,7 +13,8 @@ properties.
 3. **Visually lossless** — lossy, but looks fine. conv3rt never labels this
    "lossless" and does not use the phrase "visually lossless".
 4. **Structural change** — RAW demosaic, PSD flatten, SVG/PDF rasterization.
-   These are always reported as structural, never as lossless.
+   These are always reported as structural, never as lossless; in Lossless mode
+   they are **blocked** (switch to Highest Quality to rasterize them).
 
 `JPEG → PNG` cannot recover what the JPEG already threw away. It can only avoid
 adding *new* loss. conv3rt classifies the *added* loss, not the source's history.

@@ -26,6 +26,8 @@
 - **Animated WebP** output (libwebp mux), preserving all frames and timing.
   Animated JPEG XL is not offered (macOS Image I/O cannot read it back). The
   inspector now correctly detects animated WebP sources.
+- **Structural sources (RAW/PSD/SVG/PDF) are blocked in Lossless** — they can
+  only be rasterized in Highest Quality, where the structure loss is labeled.
 - **Lossless is verified, not assumed**: outputs are re-decoded and compared to
   the source frame-by-frame; choosing "first frame/page only" is now blocked in
   Lossless even when the target could hold every frame.
