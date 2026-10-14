@@ -1,9 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>conv3rt for Apple Silicon</title>
-    <link>https://github.com/onurergut/conv3rt</link>
-    <description>Stable conv3rt updates for arm64. No published updates yet.</description>
-    <language>en</language>
-  </channel>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>conv3rt for Apple Silicon</title>
+        <link>https://github.com/onurergut/conv3rt</link>
+        <description>Stable conv3rt updates for arm64.</description>
+        <language>en</language>
+        <item>
+            <title>conv3rt apple-silicon</title>
+            <pubDate>Wed, 14 Oct 2026 17:12:35 +0000</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/onurergut/conv3rt/releases/download/v0.6.0/conv3rt-0.6.0-apple-silicon.zip" length="5882480" type="application/octet-stream" sparkle:edSignature="LsqIXepPeSZAs7lamLR7dsGpz7vizzvcbgzOCLZ/4+n5gY6jf4XHBgw1cf2l9BsjOzRmaGp8D4QP99cuweBSCA=="></enclosure>
+        </item>
+    </channel>
 </rss>

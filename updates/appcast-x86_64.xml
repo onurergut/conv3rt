@@ -1,9 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>conv3rt for Intel</title>
-    <link>https://github.com/onurergut/conv3rt</link>
-    <description>Stable conv3rt updates for x86_64. No published updates yet.</description>
-    <language>en</language>
-  </channel>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>conv3rt for Intel</title>
+        <link>https://github.com/onurergut/conv3rt</link>
+        <description>Stable conv3rt updates for x86_64.</description>
+        <language>en</language>
+        <item>
+            <title>conv3rt intel</title>
+            <pubDate>Wed, 14 Oct 2026 17:12:57 +0000</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/onurergut/conv3rt/releases/download/v0.6.0/conv3rt-0.6.0-intel.zip" length="7360411" type="application/octet-stream" sparkle:edSignature="rA9GuhYOiJ28HUMtlMQwhqS8niIGP0ZL3qBZBw5B2YIHqLDHX7veMTXP3Q6z2A3XZpI2AYNN+DHaHn0ouHd7Bw=="></enclosure>
+        </item>
+    </channel>
 </rss>
