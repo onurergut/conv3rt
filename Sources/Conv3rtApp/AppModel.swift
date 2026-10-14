@@ -10,6 +10,7 @@ import Conv3rtCore
 final class AppModel: ObservableObject {
 
     let registry = CapabilityRegistry.shared
+    let updateGate = UpdateSafetyGate()
     private let planner = ConversionPlanner()
     private let scanner = FolderScanner()
     private let defaults: UserDefaults
@@ -171,13 +172,25 @@ final class AppModel: ObservableObject {
     // MARK: - Import
 
     func addFiles(_ urls: [URL], load: Bool = true) {
-        guard !isRunning, !urls.isEmpty else { return }
+        addFiles(urls, load: load, admitted: false)
+    }
+
+    func addAdmittedFiles(_ urls: [URL], work: UUID) {
+        defer { updateGate.endWork(work) }
+        addFiles(urls, load: true, admitted: true)
+    }
+
+    private func addFiles(_ urls: [URL], load: Bool, admitted: Bool) {
+        guard !isRunning, !urls.isEmpty, !updateGate.blocksNewWork || admitted else { return }
         pendingImports.append((urls, load))
-        guard importTask == nil else { return }
+        guard importTask == nil, let work = updateGate.beginWork(admitted: admitted) else { return }
         isImporting = true
         statusLine = "Looking for images…"
         let generation = importGeneration
-        importTask = Task { await processImports(generation: generation) }
+        importTask = Task {
+            defer { updateGate.endWork(work) }
+            await processImports(generation: generation)
+        }
     }
 
     private func processImports(generation: UUID) async {
@@ -217,31 +230,34 @@ final class AppModel: ObservableObject {
     /// Entry point for Finder Quick Actions / Open With: import, wait for
     /// inspection, then convert with the current settings.
     func handleService(_ urls: [URL]) {
-        guard !isRunning else { return }
+        guard !isRunning, !urls.isEmpty, let work = updateGate.beginWork() else { return }
         if outputDirectory == nil, let first = urls.first {
             // No folder chosen yet: default to the source's own folder so a
             // Quick Action produces a result without any dialog.
             outputDirectory = first.deletingLastPathComponent()
         }
-        Task { await importAndConvert(urls) }
+        Task {
+            defer { updateGate.endWork(work) }
+            await importAndConvert(urls)
+        }
     }
 
     private func importAndConvert(_ urls: [URL]) async {
         let generation = importGeneration
-        addFiles(urls)
+        addFiles(urls, load: true, admitted: true)
         await importTask?.value
         guard generation == importGeneration else { return }
         guard outputDirectory != nil else {
             lastError = "Choose an output folder first."
             return
         }
-        startConversion()
+        startConversion(items: items, admitted: true)
     }
 
     func addFolder(_ url: URL) { addFiles([url]) }
 
     func pasteFromClipboard() {
-        guard !isRunning else { return }
+        guard !isRunning, !updateGate.blocksNewWork else { return }
         let pb = NSPasteboard.general
         // Prefer a real image representation over file URLs.
         let imageTypes: [NSPasteboard.PasteboardType] = [.png, .tiff]
@@ -338,8 +354,8 @@ final class AppModel: ObservableObject {
         startConversion(items: items)
     }
 
-    private func startConversion(items candidates: [ImportItem]) {
-        guard !isRunning, !isImporting else { return }
+    private func startConversion(items candidates: [ImportItem], admitted: Bool = false) {
+        guard !isRunning, !isImporting, !updateGate.blocksNewWork || admitted else { return }
         guard let output = outputDirectory else {
             lastError = "Choose an output folder first."
             return
@@ -359,6 +375,7 @@ final class AppModel: ObservableObject {
             return
         }
 
+        guard let work = updateGate.beginWork(admitted: admitted) else { return }
         runner = BatchRunner(engine: ConversionEngine(quality: lossyQuality))
         isRunning = true
         progress = 0
@@ -369,6 +386,7 @@ final class AppModel: ObservableObject {
         let batchRunner = runner
 
         Task {
+            defer { updateGate.endWork(work) }
             var aggregateProgress = 0.0
             for await event in batchRunner.run(jobs: jobs, outputDirectory: output, registry: registry) {
                 aggregateProgress += Self.progressValue(event.state)

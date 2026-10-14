@@ -8,6 +8,7 @@ import Foundation
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let model = AppModel()
+    lazy var updates = UpdateController(gate: model.updateGate)
     private var servicesProvider: ServicesProvider?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -17,6 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Refresh the Services registry so the menu item appears without a
         // log out/in the first time the app runs.
         NSUpdateDynamicServices()
+        updates.start()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if model.updateGate.blocksNewWork && model.updateGate.isBusy { return .terminateCancel }
+        return .terminateNow
     }
 
     /// Return paths for files dragged onto the app icon in the Dock.

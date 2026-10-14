@@ -356,18 +356,21 @@ struct ContentView: View {
     // MARK: - Helpers
 
     private func presentOpenPanel(folders: Bool) {
+        guard let work = model.updateGate.beginWork() else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = !folders
         panel.canChooseDirectories = folders
         panel.allowsMultipleSelection = true
         panel.prompt = "Add"
         if panel.runModal() == .OK {
-            model.addFiles(panel.urls)
+            model.addAdmittedFiles(panel.urls, work: work)
+        } else {
+            model.updateGate.endWork(work)
         }
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard !model.isRunning else { return false }
+        guard !model.isRunning, let work = model.updateGate.beginWork() else { return false }
         let group = DispatchGroup()
         var urls: [URL] = []
         let lock = NSLock()
@@ -381,7 +384,7 @@ struct ContentView: View {
             }
         }
         group.notify(queue: .main) {
-            model.addFiles(urls)
+            model.addAdmittedFiles(urls, work: work)
         }
         return true
     }

@@ -304,6 +304,53 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testPendingUpdateRejectsNewImportsAndServices() throws {
+        let model = makeModel()
+        model.updateGate.requestInstallation {}
+        model.addFiles([URL(fileURLWithPath: "/tmp/rejected.png")], load: false)
+        model.handleService([URL(fileURLWithPath: "/tmp/rejected.png")])
+        XCTAssertFalse(model.isImporting)
+        XCTAssertTrue(model.items.isEmpty)
+        XCTAssertNil(model.outputDirectory)
+    }
+
+    @MainActor
+    func testUpdateWaitsForCanceledImportToDrain() async throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = makeModel()
+        let source = try writePNG(in: directory)
+        model.addFiles([source])
+        XCTAssertTrue(model.updateGate.isBusy)
+        model.clearAll()
+        var installs = 0
+        let installed = expectation(description: "Canceled import drains before updater resumes")
+        model.updateGate.requestInstallation { installs += 1; installed.fulfill() }
+        XCTAssertEqual(installs, 0)
+        await fulfillment(of: [installed], timeout: 3)
+        XCTAssertEqual(installs, 1)
+        XCTAssertFalse(model.updateGate.isBusy)
+        XCTAssertTrue(model.items.isEmpty)
+    }
+
+    @MainActor
+    func testAcceptedFilePickerImportFinishesBeforeUpdateInstallation() async throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = makeModel()
+        let work = try XCTUnwrap(model.updateGate.beginWork())
+        let source = try writePNG(in: directory)
+        let finished = expectation(description: "Already-admitted picker import inspected before install")
+        model.updateGate.requestInstallation {
+            XCTAssertEqual(model.items.count, 1)
+            XCTAssertNotNil(model.items.first?.info)
+            finished.fulfill()
+        }
+        model.addAdmittedFiles([source], work: work)
+        await fulfillment(of: [finished], timeout: 3)
+    }
+
+    @MainActor
     func testPendingRowDisclosesReadinessAndInspectionFailure() async throws {
         let item = ImportItem(url: URL(fileURLWithPath: "/tmp/missing-\(UUID().uuidString).png"))
         XCTAssertNotEqual(item.statusText, "—")

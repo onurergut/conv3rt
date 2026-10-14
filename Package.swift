@@ -79,7 +79,8 @@ targets.append(contentsOf: [
     ),
     .executableTarget(
         name: "Conv3rtApp",
-        dependencies: ["Conv3rtCore"]
+        dependencies: ["Conv3rtCore", .product(name: "Sparkle", package: "Sparkle")],
+        linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
     ),
     .testTarget(
         name: "Conv3rtAppTests",
@@ -100,5 +101,6 @@ let package = Package(
         .library(name: "Conv3rtCore", targets: ["Conv3rtCore"]),
         .executable(name: "conv3rt", targets: ["Conv3rtApp"]),
     ],
+    dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0")],
     targets: targets
 )
