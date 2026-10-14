@@ -2,7 +2,7 @@
   <img src="docs/icon.png" width="128" alt="conv3rt icon">
   <h1>conv3rt</h1>
   <p><b>A small, native macOS image converter.</b><br>
-  Offline · on-device · honest about what it preserves · no account, no telemetry, no auto-update.</p>
+  On-device conversion · honest about what it preserves · no account, no telemetry, no silent installs.</p>
 
   <p>
     <a href="https://github.com/onurergut/conv3rt/actions/workflows/ci.yml"><img src="https://github.com/onurergut/conv3rt/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
@@ -33,8 +33,10 @@ lossless for everything" marketing.
   others are targets.
 - **Nothing happens behind your back.** Originals are never modified, outputs
   never overwrite (`name-1.png`), and a failed job leaves no partial file.
-- **Fully offline.** No network code at all: no uploads, telemetry, analytics,
-  crash reporting, update checks, or accounts.
+- **On-device conversion.** Images never leave your Mac. Network access is
+  limited to update checks and downloads; no uploads, telemetry, analytics,
+  crash reporting, or accounts. Automatic checks require opt-in, and every
+  update installation requires approval.
 
 ## Formats
 
@@ -67,14 +69,37 @@ Full contract: [`docs/LOSSLESS.md`](docs/LOSSLESS.md).
 
 ## Install
 
-Download the build for your Mac from the
+No GitHub Release is published yet. When a release is available, download the
+build for your Mac from the
 [**releases page**](https://github.com/onurergut/conv3rt/releases):
 
 - **Apple Silicon** → `conv3rt-<version>-apple-silicon.zip`
 - **Intel** → `conv3rt-<version>-intel.zip`
 
-Unzip, drag **conv3rt** to Applications, and open. Builds are Developer
-ID–signed and notarized. No Homebrew, no runtimes, no extra codecs to install.
+Unzip, drag **conv3rt** to Applications, and open. Public releases must be
+Developer ID-signed and notarized; local ad-hoc builds are not distribution
+artifacts. No Homebrew, no runtimes, no extra codecs to install.
+
+Version **0.5.0 has no updater**. The first update-capable version, **0.6.0**,
+requires a manual installation once its release is available.
+
+## Updates
+
+**Check for Updates...** in the app menu checks manually. Sparkle's native
+permission prompt on the second launch offers automatic checks; they remain
+off unless you opt in. Every installation needs your approval. Silent installs,
+automatic downloads, and system-profile reporting are disabled. Updates do not
+quit the app while conversion is active.
+
+Stable feeds are separate for Apple Silicon and Intel:
+
+- `https://raw.githubusercontent.com/onurergut/conv3rt/main/updates/appcast-arm64.xml`
+- `https://raw.githubusercontent.com/onurergut/conv3rt/main/updates/appcast-x86_64.xml`
+
+These files are currently valid empty feeds in this working tree, not live
+update feeds. They become available only after a push to `main`; an update
+becomes available only after its signed/notarized GitHub Release archive exists.
+No release or notarization is claimed by this repository preparation.
 
 ## Use
 
@@ -102,14 +127,47 @@ swift run conv3rt          # run the app
 # Optional: enable JPEG XL writing (builds libjxl; a few minutes per arch)
 scripts/build-jxl.sh arm64
 
-# Package a distributable app
-scripts/package.sh arm64 0.4.0        # Apple Silicon
-scripts/package.sh x86_64 0.4.0       # Intel
+# Package locally; distribution still needs Developer ID signing + notarization
+scripts/package.sh arm64 0.6.0 2     # Apple Silicon; version and monotonic build
+scripts/package.sh x86_64 0.6.0 2    # Intel; same release build number
+
+# Deterministic appcast fixtures; no production key or network
+bash scripts/test-appcast.sh
 ```
 
 WebP writing works out of the box. JPEG XL writing is optional: build libjxl
 and the package detects and links it; without it, JPEG XL is read-only and its
-tests are compiled out.
+tests are skipped.
+
+### Prepare an update feed locally
+
+After Developer ID signing, approved notarization, stapling, and regeneration
+of the final ZIP, prepare one architecture's feed with:
+
+```sh
+# SPARKLE_ACCOUNT must name the app-specific Keychain account used for this app.
+swift scripts/generate-appcast.swift \
+  --archive dist/conv3rt-0.6.0-apple-silicon/conv3rt-0.6.0-apple-silicon.zip \
+  --asset-url https://github.com/onurergut/conv3rt/releases/download/v0.6.0/conv3rt-0.6.0-apple-silicon.zip \
+  --arch arm64 --account "$SPARKLE_ACCOUNT"
+```
+
+This is an example, not an existing release. The generator derives version,
+monotonic build number, and minimum macOS version from the archived plist. It
+runs `scripts/verify-release.sh <app> <version> <arch> release <build-number>`
+against a staged copy, then uses Sparkle 2.10.0's official `sign_update` to sign
+and verify the final ZIP bytes. The Keychain account's public key must match
+`SUPublicEDKey` in the archive. Official tools use the fixed Keychain service
+`https://sparkle-project.org` with an app-specific `--account`; no private key
+file, export, environment variable, or custom signer is used.
+
+The generator updates only the matching local XML feed. It performs no network
+requests, Apple uploads, release creation, or push. Separately approved
+publication must upload the exact signed ZIP without further changes, then
+publish the matching feed to `main`. The generator cannot confirm the remote
+asset exists or matches those bytes. Intel uses `--arch x86_64` and the
+`conv3rt-<version>-intel.zip` archive. Build numbers must increase; duplicate or
+older builds and lower versions are rejected without changing the feed.
 
 ## Project layout
 
@@ -133,8 +191,13 @@ The complete list is in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
 ## Privacy
 
-conv3rt contains no network code. Images are processed entirely on-device, and
-your files never leave your Mac.
+Images are processed entirely on-device; your files never leave your Mac.
+Network use is limited to update checks and update downloads, through GitHub
+(`raw.githubusercontent.com`, `github.com`, and GitHub's release-asset CDN
+hosts). Those hosts see ordinary connection and HTTP metadata, such as your IP
+address and update request headers. No images, conversion data, account data,
+telemetry, analytics, crash reports, or system profile are uploaded. Automatic
+checks require opt-in; manual **Check for Updates...** is always user-initiated.
 
 ## License
 

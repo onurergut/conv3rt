@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>conv3rt for Intel</title>
+    <link>https://github.com/onurergut/conv3rt</link>
+    <description>Stable conv3rt updates for x86_64. No published updates yet.</description>
+    <language>en</language>
+  </channel>
+</rss>

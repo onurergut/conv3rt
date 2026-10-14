@@ -45,7 +45,15 @@ faked in the UI.
 
 - **Finder Quick Action (Action Extension) is not implemented.** Only **Open
   With** is wired up (document types in `Info.plist` + `.onOpenURL`).
-- No automatic updates, no `Check for Updates`, no Sparkle.
+- Sparkle 2.10.0 supports manual **Check for Updates...** and automatic checks
+  only after opt-in through its native permission prompt on the second launch.
+  Every installation requires approval; silent installation and system-profile
+  reporting are disabled. Installation waits while conversion is active.
+- Version **0.5.0 has no updater**. The first update-capable version, **0.6.0**,
+  must be installed manually once a real release is available.
+- Architecture-specific stable feeds are prepared in `updates/`, currently as
+  empty RSS feeds. They are not live until pushed to `main`; no GitHub Releases
+  exist yet. No signed/notarized update artifact is claimed as published.
 
 ## Build / release
 
@@ -53,9 +61,21 @@ faked in the UI.
   machine. The **Intel** build path exists (`scripts/package.sh x86_64`) but has
   not been run or tested here — cross-compiling is not the same as testing on an
   Intel Mac.
-- No Developer ID identity is configured here, so release artifacts are
-  **ad-hoc signed**, not notarized. Real distribution requires signing +
-  notarization (see [`PACKAGING.md`](PACKAGING.md)).
+- Developer ID signing is available for local packaging, but the current 0.6.0
+  artifact has not been submitted for notarization or published as a release.
+  Public distribution still requires Apple notarization and stapling, then
+  release verification before Sparkle signs the final ZIP bytes. No Apple
+  submission or GitHub publication has been performed as part of update
+  preparation.
+- The appcast generator is local-only. It accepts per-architecture stable ZIPs
+  and canonical HTTPS assets under
+  `github.com/onurergut/conv3rt/releases/download/`, rejects build/version
+  downgrades, checks the signing account against the archived public key, and
+  verifies exact archive bytes and length. It cannot confirm a remote asset
+  exists or matches local bytes; publication must preserve the signed ZIP.
+- Update checks and downloads are the only allowed network use. GitHub feed,
+  release and release-asset CDN hosts receive ordinary IP/HTTP metadata. Images
+  and conversion data stay on-device; no system profile or telemetry is sent.
 
 ## Verification gaps
 

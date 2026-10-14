@@ -28,6 +28,9 @@ jobs:
       - name: Packaging regressions
         run: bash scripts/test-packaging.sh
 
+      - name: Update feed regressions
+        run: bash scripts/test-appcast.sh
+
       - name: Coverage summary
         # Report only — no threshold, so the build never fails on a number.
         run: |
