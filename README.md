@@ -15,10 +15,10 @@
 
 ---
 
-Drop images in, pick a format, convert. conv3rt reads roughly **60 formats** on
-modern macOS and writes **16** of them (17 with JPEG XL). It is explicit about
-which conversion preserves your data and which does not — no "perfectly
-lossless for everything" marketing.
+Drop images in, pick a format, convert. conv3rt reads **60+ formats** on modern
+macOS and writes **19** of them (**21** with the optional JPEG XL and AVIF
+codecs). It is explicit about which conversion preserves your data and which
+does not — no "perfectly lossless for everything" marketing.
 
 ## Why it's different
 
@@ -26,11 +26,9 @@ lossless for everything" marketing.
   depth, alpha, color profile and structure — and it is **blocked**, never
   silently downgraded, when the target can't. Highest Quality is always labeled
   as potentially lossy.
-- **Read ≠ write.** macOS can decode WebP/AVIF/JPEG XL but not encode them;
-  conv3rt writes these with bundled codecs, and says honestly which formats it
-  can only read.
-  conv3rt writes WebP (and JPEG XL, if built) and does **not** pretend the
-  others are targets.
+- **Read ≠ write.** macOS can decode WebP/AVIF/JPEG XL but not encode them.
+  conv3rt writes WebP itself, and JPEG XL / AVIF when built, and is honest
+  about which formats it can only read.
 - **Nothing happens behind your back.** Originals are never modified, outputs
   never overwrite (`name-1.png`), and a failed job leaves no partial file.
 - **On-device conversion.** Images never leave your Mac. Network access is
@@ -42,8 +40,8 @@ lossless for everything" marketing.
 
 | | |
 |---|---|
-| **Read** | JPEG, PNG, TIFF, BMP, GIF, HEIC/HEIF, WebP, AVIF, JPEG XL, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF, and nearly all camera RAW (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, …) |
-| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, **WebP**, **JPEG XL**\*, **AVIF**\*, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF |
+| **Read** | JPEG, PNG, TIFF, BMP, GIF, HEIC/HEIF, WebP, AVIF, JPEG XL, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF, SVG, DDS, QOI, PCX, PFM, and nearly all camera RAW (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, …) |
+| **Write** | PNG, JPEG, TIFF, BMP, GIF, HEIC/HEIF, **WebP**, **JPEG XL**\*, **AVIF**\*, JPEG 2000, OpenEXR, TGA, ICO, ICNS, Netpbm, PSD, PDF, DDS, QOI, PCX, PFM |
 | **Read-only** | Radiance HDR, SGI, PICT, camera RAW |
 
 <sub>\* JPEG XL and AVIF writing are optional at build time (`scripts/build-jxl.sh`, `scripts/build-avif.sh`).</sub>
@@ -69,19 +67,19 @@ Full contract: [`docs/LOSSLESS.md`](docs/LOSSLESS.md).
 
 ## Install
 
-No GitHub Release is published yet. When a release is available, download the
-build for your Mac from the
+Download the build for your Mac from the
 [**releases page**](https://github.com/onurergut/conv3rt/releases):
 
 - **Apple Silicon** → `conv3rt-<version>-apple-silicon.zip`
 - **Intel** → `conv3rt-<version>-intel.zip`
 
-Unzip, drag **conv3rt** to Applications, and open. Public releases must be
-Developer ID-signed and notarized; local ad-hoc builds are not distribution
-artifacts. No Homebrew, no runtimes, no extra codecs to install.
+Unzip, drag **conv3rt** to Applications, and open. Every public release is
+Developer ID-signed and notarized by Apple; local ad-hoc builds are not
+distribution artifacts. No Homebrew, no runtimes, no extra codecs to install.
+The latest release is **0.6.0**.
 
-Version **0.5.0 has no updater**. The first update-capable version, **0.6.0**,
-requires a manual installation once its release is available.
+Any version before **0.6.0** has no updater, so moving to 0.6.0 is a one-time
+manual install. From 0.6.0 on, the app keeps itself up to date.
 
 ## Updates
 
@@ -96,10 +94,9 @@ Stable feeds are separate for Apple Silicon and Intel:
 - `https://raw.githubusercontent.com/onurergut/conv3rt/main/updates/appcast-arm64.xml`
 - `https://raw.githubusercontent.com/onurergut/conv3rt/main/updates/appcast-x86_64.xml`
 
-These files are currently valid empty feeds in this working tree, not live
-update feeds. They become available only after a push to `main`; an update
-becomes available only after its signed/notarized GitHub Release archive exists.
-No release or notarization is claimed by this repository preparation.
+Both feeds are live and point at the notarized archives on the
+[**releases page**](https://github.com/onurergut/conv3rt/releases). The app only
+sees an update once a newer signed and notarized build is published there.
 
 ## Use
 
@@ -127,6 +124,9 @@ swift run conv3rt          # run the app
 # Optional: enable JPEG XL writing (builds libjxl; a few minutes per arch)
 scripts/build-jxl.sh arm64
 
+# Optional: enable lossy AVIF writing (builds libavif + libaom; slower)
+scripts/build-avif.sh arm64
+
 # Package locally; distribution still needs Developer ID signing + notarization
 scripts/package.sh arm64 0.6.0 2     # Apple Silicon; version and monotonic build
 scripts/package.sh x86_64 0.6.0 2    # Intel; same release build number
@@ -152,8 +152,8 @@ swift scripts/generate-appcast.swift \
   --arch arm64 --account "$SPARKLE_ACCOUNT"
 ```
 
-This is an example, not an existing release. The generator derives version,
-monotonic build number, and minimum macOS version from the archived plist. It
+`v0.6.0` was built exactly this way. The generator derives version, monotonic
+build number, and minimum macOS version from the archived plist. It
 runs `scripts/verify-release.sh <app> <version> <arch> release <build-number>`
 against a staged copy, then uses Sparkle 2.10.0's official `sign_update` to sign
 and verify the final ZIP bytes. The Keychain account's public key must match
@@ -184,8 +184,8 @@ docs/                  format matrix and user-facing notes
   there is no lossless AVIF, and its output carries no EXIF/XMP.
 - **RAW / PSD / SVG / PDF** are exported as **flattened raster images** — their
   original structure is not preserved.
-- WebP/JPEG XL output doesn't carry EXIF/XMP yet (ICC is written); animated
-  WebP/JXL isn't implemented.
+- **WebP** output carries ICC, EXIF/GPS and XMP (not IPTC) and supports animated
+  output. **JPEG XL** output carries ICC, EXIF/GPS and XMP but is not animated.
 
 The complete list is in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 

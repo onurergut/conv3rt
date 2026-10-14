@@ -43,30 +43,23 @@ faked in the UI.
 
 ## Integration
 
-- **Finder Quick Action (Action Extension) is not implemented.** Only **Open
-  With** is wired up (document types in `Info.plist` + `.onOpenURL`).
+- Finder integration is **Open With** plus a **Services**-based Quick Action
+  ("Convert with conv3rt"); it is not a sandboxed Action Extension.
 - Sparkle 2.10.0 supports manual **Check for Updates...** and automatic checks
   only after opt-in through its native permission prompt on the second launch.
   Every installation requires approval; silent installation and system-profile
   reporting are disabled. Installation waits while conversion is active.
-- Version **0.5.0 has no updater**. The first update-capable version, **0.6.0**,
-  must be installed manually once a real release is available.
-- Architecture-specific stable feeds are prepared in `updates/`, currently as
-  empty RSS feeds. They are not live until pushed to `main`; no GitHub Releases
-  exist yet. No signed/notarized update artifact is claimed as published.
+- Any version before **0.6.0** has no updater; moving to 0.6.0 is a one-time
+  manual install. From 0.6.0 on the app handles its own updates.
+- Architecture-specific stable feeds in `updates/` are live and point at the
+  notarized **v0.6.0** release archives.
 
 ## Build / release
 
-- Only the **Apple Silicon** build has been produced and launched on this
-  machine. The **Intel** build path exists (`scripts/package.sh x86_64`) but has
-  not been run or tested here — cross-compiling is not the same as testing on an
-  Intel Mac.
-- Developer ID signing is available for local packaging, but the current 0.6.0
-  artifact has not been submitted for notarization or published as a release.
-  Public distribution still requires Apple notarization and stapling, then
-  release verification before Sparkle signs the final ZIP bytes. No Apple
-  submission or GitHub publication has been performed as part of update
-  preparation.
+- **0.6.0** is built, Developer ID-signed, **notarized by Apple**, stapled and
+  published as a GitHub Release for both **Apple Silicon** and **Intel**. The
+  Intel build compiles, signs and notarizes, but has not been run on real Intel
+  hardware here — cross-compiling is not the same as testing on an Intel Mac.
 - The appcast generator is local-only. It accepts per-architecture stable ZIPs
   and canonical HTTPS assets under
   `github.com/onurergut/conv3rt/releases/download/`, rejects build/version
