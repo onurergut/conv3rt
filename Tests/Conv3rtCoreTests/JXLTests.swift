@@ -1,10 +1,7 @@
-#if CONV3RT_JXL
 import XCTest
 import ImageIO
 @testable import Conv3rtCore
 
-/// JPEG XL writing via the bundled libjxl. Compiled only when libjxl has been
-/// built (scripts/build-jxl.sh).
 final class JXLTests: XCTestCase {
 
     private let inspector = ImageInspector()
@@ -12,11 +9,13 @@ final class JXLTests: XCTestCase {
     private let registry = CapabilityRegistry.shared
     private func target(_ id: String) -> FormatCapability { registry.capability(id: id)! }
 
-    func testJXLIsWritableWhenBuilt() {
+    func testJXLIsWritableWhenBuilt() throws {
+        try XCTSkipUnless(JXLEncoder.isAvailable, "JPEG XL codec is not built in this environment")
         XCTAssertTrue(target("jxl").canWrite)
     }
 
     func testPNGtoJXLLosslessIsSampleExact() throws {
+        try XCTSkipUnless(JXLEncoder.isAvailable, "JPEG XL codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.write(Fixtures.manyColors(), uti: "public.png", ext: "png",
                                      directory: dir.url, name: "src")
@@ -38,4 +37,3 @@ final class JXLTests: XCTestCase {
         XCTAssertEqual(a.bytes, b.bytes, "Lossless JPEG XL must preserve every sample")
     }
 }
-#endif

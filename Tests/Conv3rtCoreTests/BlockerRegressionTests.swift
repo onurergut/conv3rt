@@ -39,7 +39,7 @@ final class BlockerRegressionTests: XCTestCase {
     // MARK: - Blocker 2: no false bit-depth claims
 
     func testSixteenBitToJXLLosslessIsBlocked() throws {
-        #if CONV3RT_JXL
+        try XCTSkipUnless(JXLEncoder.isAvailable, "JPEG XL codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.gray16PNG(directory: dir.url)
         let info = try inspector.inspect(url: src)
@@ -49,7 +49,6 @@ final class BlockerRegressionTests: XCTestCase {
         XCTAssertEqual(plan.status, .blocked)
         XCTAssertTrue(plan.blockingChanges.contains { $0.code == "depth.reduced" },
                       "JPEG XL write path is 8-bit, so 16-bit lossless must be blocked")
-        #endif
     }
 
     func testSixteenBitToPNGLosslessStillAllowed() throws {
@@ -122,7 +121,7 @@ final class BlockerRegressionTests: XCTestCase {
 
     func testAVIFReportsLimitedMetadata() throws {
         let avif = target("avif")
-        try XCTSkipUnless(avif.canWrite, "AVIF codec is not built in this environment")
+        try XCTSkipUnless(AVIFEncoder.isAvailable, "AVIF codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.pngWithMetadata(directory: dir.url)   // has GPS + EXIF
         let info = try inspector.inspect(url: src)

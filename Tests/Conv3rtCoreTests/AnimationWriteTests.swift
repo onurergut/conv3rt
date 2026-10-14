@@ -103,12 +103,12 @@ final class AnimationWriteTests: XCTestCase {
 
     // MARK: - JPEG XL
 
-    #if CONV3RT_JXL
     /// JPEG XL animation is deliberately not offered: macOS Image I/O reads an
     /// animated JPEG XL as a single frame, so a verified single-file animated
     /// output is not possible. Animated sources are split into per-frame files
     /// instead (documented behaviour).
     func testJXLAnimationIsNotOffered() throws {
+        try XCTSkipUnless(JXLEncoder.isAvailable, "JPEG XL codec is not built in this environment")
         XCTAssertFalse(target("jxl").supportsAnimation,
                        "Animated JPEG XL is not offered (Image I/O cannot read it back)")
 
@@ -131,5 +131,4 @@ final class AnimationWriteTests: XCTestCase {
                                                     namer: OutputNamer(), target: target("jxl"))
         XCTAssertEqual(result.outputs.count, 3)
     }
-    #endif
 }

@@ -61,8 +61,8 @@ final class MetadataWriteTests: XCTestCase {
 
     // MARK: - JPEG XL
 
-#if CONV3RT_JXL
     func testPNGMetadataToJXLKeep() throws {
+        try XCTSkipUnless(JXLEncoder.isAvailable, "JPEG XL codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.pngWithMetadata(directory: dir.url)
         let srcInfo = try inspector.inspect(url: src)
@@ -75,6 +75,7 @@ final class MetadataWriteTests: XCTestCase {
     }
 
     func testPNGMetadataToJXLRemoveLocation() throws {
+        try XCTSkipUnless(JXLEncoder.isAvailable, "JPEG XL codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.pngWithMetadata(directory: dir.url)
         let out = try convert(src, to: "jxl", policy: .removeLocation, dir: dir.url)
@@ -83,11 +84,11 @@ final class MetadataWriteTests: XCTestCase {
     }
 
     func testPNGMetadataToJXLRemove() throws {
+        try XCTSkipUnless(JXLEncoder.isAvailable, "JPEG XL codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.pngWithMetadata(directory: dir.url)
         let out = try convert(src, to: "jxl", policy: .remove, dir: dir.url)
         XCTAssertFalse(out.hasEXIF, "EXIF must be dropped for remove")
         XCTAssertFalse(out.hasGPS, "GPS must be dropped for remove")
     }
-#endif
 }

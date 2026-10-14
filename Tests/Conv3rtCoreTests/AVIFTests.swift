@@ -1,11 +1,8 @@
-#if CONV3RT_AVIF
 import XCTest
 import CoreGraphics
 import ImageIO
 @testable import Conv3rtCore
 
-/// AVIF (lossy) writing via the bundled libavif + libaom. Compiled only when
-/// the libraries have been built (scripts/build-avif.sh).
 final class AVIFTests: XCTestCase {
 
     private let inspector = ImageInspector()
@@ -13,12 +10,14 @@ final class AVIFTests: XCTestCase {
     private let registry = CapabilityRegistry.shared
     private func target(_ id: String) -> FormatCapability { registry.capability(id: id)! }
 
-    func testAVIFIsWritableWhenBuilt() {
+    func testAVIFIsWritableWhenBuilt() throws {
+        try XCTSkipUnless(AVIFEncoder.isAvailable, "AVIF codec is not built in this environment")
         XCTAssertTrue(target("avif").canWrite)
         XCTAssertTrue(target("avif").canRead)
     }
 
     func testPNGtoAVIFProducesReadableOutput() throws {
+        try XCTSkipUnless(AVIFEncoder.isAvailable, "AVIF codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.write(Fixtures.manyColors(), uti: "public.png", ext: "png",
                                      directory: dir.url, name: "src")
@@ -39,6 +38,7 @@ final class AVIFTests: XCTestCase {
     }
 
     func testAVIFEmbedsColorProfile() throws {
+        try XCTSkipUnless(AVIFEncoder.isAvailable, "AVIF codec is not built in this environment")
         let dir = TempDir()
         // A non-sRGB (Display P3) source, so the written file carries a real ICC.
         let space = CGColorSpace(name: CGColorSpace.displayP3)!
@@ -59,6 +59,7 @@ final class AVIFTests: XCTestCase {
     }
 
     func testAVIFInLosslessIsBlocked() throws {
+        try XCTSkipUnless(AVIFEncoder.isAvailable, "AVIF codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.write(Fixtures.manyColors(), uti: "public.png", ext: "png",
                                      directory: dir.url, name: "src")
@@ -68,4 +69,3 @@ final class AVIFTests: XCTestCase {
         XCTAssertTrue(plan.blockingChanges.contains { $0.code == "lossless.unavailable" })
     }
 }
-#endif

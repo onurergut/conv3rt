@@ -54,11 +54,11 @@ final class MetadataSafetyTests: XCTestCase {
         try assertSplitMetadata(target: "webp")
     }
 
-    #if CONV3RT_JXL
     func testSplitTIFFToJXLPreservesEachPagesOwnMetadata() throws {
+        try XCTSkipUnless(JXLEncoder.isAvailable,
+                          "JPEG XL codec is not built in this environment")
         try assertSplitMetadata(target: "jxl")
     }
-    #endif
 
     func testImageIOMetadataOptionsAlsoPreserveRegularFrameProperties() throws {
         let source = TempDir()

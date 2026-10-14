@@ -2,22 +2,14 @@
 import PackageDescription
 import Foundation
 
-// JPEG XL writing is enabled only when libjxl has been built (see
-// scripts/build-jxl.sh). Without it, JPEG XL is simply not an output target and
-// its tests skip — a fresh clone still builds and tests cleanly.
-let jxlLibPath = "ThirdParty/jxl-lib/fat"
-let jxlHeaders = "ThirdParty/jxl-src/lib/include"
-let hasJXL = FileManager.default.fileExists(atPath: jxlLibPath)
-    && FileManager.default.fileExists(atPath: jxlHeaders)
-
-// AVIF writing is enabled only when libavif (plus its aom encoder and libyuv)
-// has been built (see scripts/build-avif.sh). Without it, AVIF is simply not an
-// output target and its tests skip — a fresh clone still builds and tests
-// cleanly.
-let avifLibPath = "ThirdParty/avif-lib/fat"
-let avifHeaders = "ThirdParty/avif-lib/include/avif/avif.h"
-let hasAVIF = FileManager.default.fileExists(atPath: avifLibPath)
-    && FileManager.default.fileExists(atPath: avifHeaders)
+let packageRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+let jxlLibPath = packageRoot.appendingPathComponent("ThirdParty/jxl-lib/fat").path
+let avifLibPath = packageRoot.appendingPathComponent("ThirdParty/avif-lib/fat").path
+let hasJXL = FileManager.default.fileExists(atPath: "\(jxlLibPath)/libjxl.a")
+    && FileManager.default.fileExists(atPath: packageRoot.appendingPathComponent("ThirdParty/jxl-lib/include/jxl/encode.h").path)
+    && FileManager.default.fileExists(atPath: packageRoot.appendingPathComponent("ThirdParty/jxl-lib/include/jxl/jxl_export.h").path)
+let hasAVIF = FileManager.default.fileExists(atPath: "\(avifLibPath)/libavif.a")
+    && FileManager.default.fileExists(atPath: packageRoot.appendingPathComponent("ThirdParty/avif-lib/include/avif/avif.h").path)
 
 var coreDependencies: [Target.Dependency] = ["CWebP"]
 var coreSwiftSettings: [SwiftSetting] = [.enableUpcomingFeature("ExistentialAny")]
@@ -36,20 +28,17 @@ var targets: [Target] = [
 ]
 
 if hasJXL {
-    let absLib = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent(jxlLibPath).path
     targets.append(.target(
         name: "CJXL",
         path: "ThirdParty/jxl-shim",
         publicHeadersPath: ".",
         cSettings: [
-            .headerSearchPath("../jxl-src/lib/include"),
             .headerSearchPath("../jxl-lib/include"),
             .unsafeFlags(["-Wno-deprecated-declarations"]),
         ],
         linkerSettings: [
             .unsafeFlags([
-                "-L\(absLib)",
+                "-L\(jxlLibPath)",
                 "-ljxl", "-ljxl_threads", "-ljxl_cms",
                 "-lhwy", "-lbrotlienc", "-lbrotlidec", "-lbrotlicommon",
                 "-llcms2", "-lz",
@@ -62,8 +51,6 @@ if hasJXL {
 }
 
 if hasAVIF {
-    let absLib = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent(avifLibPath).path
     targets.append(.target(
         name: "CAVIF",
         path: "ThirdParty/avif-shim",
@@ -74,7 +61,7 @@ if hasAVIF {
         ],
         linkerSettings: [
             .unsafeFlags([
-                "-L\(absLib)",
+                "-L\(avifLibPath)",
                 "-lavif", "-laom", "-lyuv",
                 "-lc++", "-lpthread", "-lm",
             ]),
