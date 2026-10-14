@@ -13,12 +13,18 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 APP_NAME="conv3rt"
 BUNDLE="$DIST/$APP_NAME.app"
-OUTROOT="$DIST/conv3rt-$VERSION-$([ "$ARCH" = "arm64" ] && echo apple-silicon || echo intel)"
+case "$ARCH" in
+    arm64) ARCH_NAME=apple-silicon ;;
+    x86_64) ARCH_NAME=intel ;;
+    *) printf 'Unsupported architecture: %s\n' "$ARCH" >&2; exit 1 ;;
+esac
+OUTROOT="$DIST/conv3rt-$VERSION-$ARCH_NAME"
+ARCHIVE="$OUTROOT/conv3rt-$VERSION-$ARCH_NAME.zip"
 
 echo "==> Building $APP_NAME for $ARCH (release)..."
 cd "$ROOT"
-swift build -c release --arch "$ARCH"
-BIN="$(swift build -c release --arch "$ARCH" --show-bin-path)/$APP_NAME"
+swift build --manifest-cache none -c release --arch "$ARCH"
+BIN="$(swift build --manifest-cache none -c release --arch "$ARCH" --show-bin-path)/$APP_NAME"
 [ -x "$BIN" ] || { echo "build did not produce $BIN"; exit 1; }
 
 echo "==> Assembling $BUNDLE..."
@@ -26,12 +32,37 @@ rm -rf "$BUNDLE" "$OUTROOT"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$BIN" "$BUNDLE/Contents/MacOS/$APP_NAME"
 sed "s/0\.1\.0/$VERSION/g" "$ROOT/Resources/Info.plist" > "$BUNDLE/Contents/Info.plist"
-cp "$ROOT/THIRD_PARTY_NOTICES.txt" "$BUNDLE/Contents/Resources/" 2>/dev/null || true
-cp "$ROOT/Resources/conv3rt.icns" "$BUNDLE/Contents/Resources/conv3rt.icns" 2>/dev/null || true
-# Bundled third-party license texts (required for redistribution).
+cp "$ROOT/THIRD_PARTY_NOTICES.txt" "$BUNDLE/Contents/Resources/"
+cp "$ROOT/Resources/conv3rt.icns" "$BUNDLE/Contents/Resources/conv3rt.icns"
 mkdir -p "$BUNDLE/Contents/Resources/licenses"
-cp "$ROOT/ThirdParty/libwebp-c/COPYING" "$BUNDLE/Contents/Resources/licenses/libwebp-COPYING.txt" 2>/dev/null || true
-cp "$ROOT/ThirdParty/libwebp-c/PATENTS" "$BUNDLE/Contents/Resources/licenses/libwebp-PATENTS.txt" 2>/dev/null || true
+copy_license() {
+    local source="$ROOT/$1"
+    [[ -s "$source" ]] || { printf 'Required license missing or empty: %s\n' "$source" >&2; exit 1; }
+    cp "$source" "$BUNDLE/Contents/Resources/licenses/$2.txt"
+}
+copy_license ThirdParty/libwebp-c/COPYING libwebp-COPYING
+copy_license ThirdParty/libwebp-c/PATENTS libwebp-PATENTS
+SYMBOLS="$(nm -g "$BIN")"
+if [[ "$SYMBOLS" == *"_conv3rt_jxl_encode_rgba"* ]]; then
+    copy_license ThirdParty/jxl-src/LICENSE libjxl-LICENSE
+    copy_license ThirdParty/jxl-src/PATENTS libjxl-PATENTS
+    copy_license ThirdParty/jxl-src/third_party/highway/LICENSE highway-LICENSE
+    copy_license ThirdParty/jxl-src/third_party/brotli/LICENSE brotli-LICENSE
+    copy_license ThirdParty/jxl-src/third_party/lcms/LICENSE lcms2-LICENSE
+    copy_license ThirdParty/jxl-src/third_party/libpng/LICENSE libpng-LICENSE
+    copy_license ThirdParty/jxl-src/third_party/zlib/LICENSE zlib-LICENSE
+fi
+if [[ "$SYMBOLS" == *"_conv3rt_avif_encode_rgba"* ]]; then
+    DEPS="ThirdParty/avif-build-$ARCH/_deps"
+    copy_license ThirdParty/avif-src/LICENSE libavif-LICENSE
+    copy_license "$DEPS/libaom-src/LICENSE" libaom-LICENSE
+    copy_license "$DEPS/libaom-src/PATENTS" libaom-PATENTS
+    copy_license "$DEPS/libaom-src/third_party/fastfeat/LICENSE" libaom-fastfeat-LICENSE
+    copy_license "$DEPS/libaom-src/third_party/vector/LICENSE" libaom-vector-LICENSE
+    copy_license "$DEPS/libaom-src/third_party/x86inc/LICENSE" libaom-x86inc-LICENSE
+    copy_license "$DEPS/libyuv-src/LICENSE" libyuv-LICENSE
+    copy_license "$DEPS/libyuv-src/PATENTS" libyuv-PATENTS
+fi
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
 echo "==> Signing..."
@@ -52,19 +83,19 @@ mv "$BUNDLE" "$OUTROOT/"
 CONTENTS="$OUTROOT/$APP_NAME.app"
 
 echo "==> Zipping..."
-( cd "$OUTROOT" && ditto -c -k --keepParent "$APP_NAME.app" "conv3rt-$VERSION-$ARCH.zip" )
-shasum -a 256 "$OUTROOT/conv3rt-$VERSION-$ARCH.zip" | awk '{print $1}' > "$OUTROOT/conv3rt-$VERSION-$ARCH.zip.sha256"
+ditto -c -k --keepParent "$CONTENTS" "$ARCHIVE"
+shasum -a 256 "$ARCHIVE" | awk '{print $1}' > "$ARCHIVE.sha256"
 
 APP_SIZE=$(du -sh "$CONTENTS" | awk '{print $1}')
-ZIP_SIZE=$(du -sh "$OUTROOT/conv3rt-$VERSION-$ARCH.zip" | awk '{print $1}')
+ZIP_SIZE=$(du -sh "$ARCHIVE" | awk '{print $1}')
 BIN_SIZE=$(du -sh "$CONTENTS/Contents/MacOS/$APP_NAME" | awk '{print $1}')
 
 echo ""
 echo "==================== conv3rt $VERSION ($ARCH) ===================="
 echo "Bundle:        $CONTENTS"
-echo "Zip:           $OUTROOT/conv3rt-$VERSION-$ARCH.zip  ($ZIP_SIZE)"
+echo "Zip:           $ARCHIVE  ($ZIP_SIZE)"
 echo "App size:      $APP_SIZE"
 echo "Executable:    $BIN_SIZE"
 echo "Signing:       $SIGN_STATE"
-echo "Checksum:      $OUTROOT/conv3rt-$VERSION-$ARCH.zip.sha256"
+echo "Checksum:      $ARCHIVE.sha256"
 echo "=================================================================="

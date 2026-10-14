@@ -20,9 +20,13 @@ jobs:
         run: swift build
 
       - name: Test
-        # Optional libjxl and libavif codecs are not built in CI, so their write
-        # tests skip. Everything else runs.
+        # Optional libjxl and libavif codecs are not built in CI. Their tests
+        # are compiled unconditionally and skip themselves with XCTSkipUnless,
+        # so a missing codec shows up as a skipped test instead of a missing one.
         run: swift test --enable-code-coverage
+
+      - name: Packaging regressions
+        run: bash scripts/test-packaging.sh
 
       - name: Coverage summary
         # Report only — no threshold, so the build never fails on a number.

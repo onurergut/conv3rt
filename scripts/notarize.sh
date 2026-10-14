@@ -11,6 +11,14 @@ set -euo pipefail
 
 APP="${1:?usage: notarize.sh <path/to/conv3rt.app>}"
 PROFILE="${NOTARY_PROFILE:-conv3rt-profile}"
+PARENT="$(cd "$(dirname "$APP")" && pwd)"
+APP="$PARENT/$(basename "$APP")"
+PACKAGE_NAME="$(basename "$PARENT")"
+case "$PACKAGE_NAME" in
+    conv3rt-*-apple-silicon|conv3rt-*-intel) ;;
+    *) printf 'Use the architecture-named folder created by package.sh.\n' >&2; exit 1 ;;
+esac
+OUT="$PARENT/$PACKAGE_NAME.zip"
 
 echo "==> Verifying signature before notarization ..."
 codesign --verify --deep --strict --verbose=2 "$APP"
@@ -31,7 +39,6 @@ echo "==> Gatekeeper assessment after stapling ..."
 spctl -a -vvv -t exec "$APP"
 
 echo "==> Re-zipping the stapled app next to it ..."
-OUT="${APP%.app}.zip"
 ditto -c -k --keepParent "$APP" "$OUT"
 shasum -a 256 "$OUT" | awk '{print $1}' > "$OUT.sha256"
 echo "Notarized package: $OUT"

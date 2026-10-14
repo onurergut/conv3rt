@@ -29,8 +29,6 @@ Bundled third-party codecs
               color-profile chunk. No modifications were made to libwebp sources;
               conv3rt adds only a thin shim (conv3rt_webp.c / conv3rt_webp.h).
 
-No other third-party source code is compiled into this build.
-
 2. libjxl (optional — only if scripts/build-jxl.sh has been run)
    Version:   0.11.2 (pinned)
    Source:    https://github.com/libjxl/libjxl (tag v0.11.2)
@@ -43,6 +41,20 @@ No other third-party source code is compiled into this build.
      - libpng / zlib (libpng-2.0 / Zlib) — PNG codepath
    When JPEG XL is built in, JPEG XL becomes a writable output target; without
    it, JPEG XL is read-only (as on stock macOS).
+   Full license and patent texts, including the dependencies listed above, are
+   shipped in Contents/Resources/licenses/ when this codec is linked.
+
+3. libavif (optional - only if scripts/build-avif.sh has been run)
+   Version:   1.1.1 (pinned)
+   Source:    https://github.com/AOMediaCodec/libavif (tag v1.1.1)
+   Purpose:   AVIF encoding.
+   License:   BSD 2-Clause - see ThirdParty/avif-src/LICENSE.
+   Bundled dependencies:
+     - libaom (BSD 2-Clause plus patent grant) - AV1 encoding
+     - libyuv (BSD 3-Clause plus patent grant) - color conversion
+   libaom also contains fastfeat, vector and x86inc code with their own notices.
+   Full license and patent texts are shipped in Contents/Resources/licenses/
+   when this codec is linked. Without it, AVIF remains a read-only format.
 
 Test fixtures
 -------------
