@@ -57,6 +57,33 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testApplyingPresetReplansOnceWithFinalSettings() async throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let item = ImportItem(url: try writePNG(in: directory))
+        await item.load()
+        let model = makeModel()
+        model.items = [item]
+        model.recomputePlans()
+        let preset = ConversionPreset(name: "Web export", formatID: "webp", mode: .highestQuality,
+                                      metadataPolicy: .removeLocation, framePolicy: .exportAll,
+                                      alphaBackground: .black, lossyQuality: 0.75,
+                                      pdfDPI: 300, svgScale: 3, keepFolderStructure: true)
+        var publishedPlans = 0
+        let subscription = item.$plan.dropFirst().sink { _ in publishedPlans += 1 }
+        model.applyPreset(preset)
+        XCTAssertEqual(publishedPlans, 1)
+        XCTAssertEqual(item.plan?.codecId, "webp")
+        XCTAssertEqual(item.plan?.settings, model.currentSettings)
+        XCTAssertEqual(model.lossyQuality, 0.75)
+        let restored = AppModel(defaults: UserDefaults(suiteName: defaultsName)!)
+        XCTAssertEqual(restored.selectedFormatID, "webp")
+        XCTAssertEqual(restored.currentSettings, model.currentSettings)
+        XCTAssertEqual(restored.lossyQuality, model.lossyQuality)
+        withExtendedLifetime(subscription) {}
+    }
+
+    @MainActor
     func testRowProgressAndCompletionNotifyTheWindow() throws {
         let model = makeModel()
         let item = ImportItem(url: URL(fileURLWithPath: "/tmp/progress.png"))

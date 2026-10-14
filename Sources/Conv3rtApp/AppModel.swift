@@ -19,6 +19,7 @@ final class AppModel: ObservableObject {
     private var importTask: Task<Void, Never>?
     private var importGeneration = UUID()
     private var pendingImports: [(urls: [URL], load: Bool)] = []
+    private var isApplyingPreset = false
 
     @Published var items: [ImportItem] = [] {
         didSet {
@@ -34,15 +35,15 @@ final class AppModel: ObservableObject {
     @Published var lastError: String?
 
     // Persisted settings.
-    @Published var selectedFormatID: String { didSet { persist(); recomputePlans() } }
-    @Published var mode: ConversionMode { didSet { persist(); recomputePlans() } }
-    @Published var metadataPolicy: MetadataPolicy { didSet { persist(); recomputePlans() } }
-    @Published var framePolicy: FramePolicy { didSet { persist(); recomputePlans() } }
-    @Published var alphaBackground: AlphaBackground { didSet { persist(); recomputePlans() } }
+    @Published var selectedFormatID: String { didSet { settingsChanged() } }
+    @Published var mode: ConversionMode { didSet { settingsChanged() } }
+    @Published var metadataPolicy: MetadataPolicy { didSet { settingsChanged() } }
+    @Published var framePolicy: FramePolicy { didSet { settingsChanged() } }
+    @Published var alphaBackground: AlphaBackground { didSet { settingsChanged() } }
     @Published var lossyQuality: Double { didSet { persist() } }
-    @Published var pdfDPI: Double { didSet { persist(); recomputePlans() } }
-    @Published var svgScale: Double { didSet { persist(); recomputePlans() } }
-    @Published var keepFolderStructure: Bool { didSet { persist() } }
+    @Published var pdfDPI: Double { didSet { settingsChanged() } }
+    @Published var svgScale: Double { didSet { settingsChanged() } }
+    @Published var keepFolderStructure: Bool { didSet { settingsChanged() } }
     @Published var outputDirectory: URL? { didSet { persistOutputFolder() } }
     @Published private(set) var recentOutputFolders: [URL] = []
     @Published private(set) var presets: [ConversionPreset] = []
@@ -90,7 +91,14 @@ final class AppModel: ObservableObject {
         static let recentOutputs = "conv3rt.recentOutputs"
     }
 
+    private func settingsChanged() {
+        guard !isApplyingPreset else { return }
+        persist()
+        recomputePlans()
+    }
+
     private func persist() {
+        guard !isApplyingPreset else { return }
         defaults.set(selectedFormatID, forKey: Keys.format)
         defaults.set(mode.rawValue, forKey: Keys.mode)
         defaults.set(metadataPolicy.rawValue, forKey: Keys.metadata)
@@ -140,6 +148,7 @@ final class AppModel: ObservableObject {
     }
 
     func applyPreset(_ preset: ConversionPreset) {
+        isApplyingPreset = true
         selectedFormatID = preset.formatID
         mode = preset.mode
         metadataPolicy = preset.metadataPolicy
@@ -149,6 +158,8 @@ final class AppModel: ObservableObject {
         pdfDPI = preset.pdfDPI
         svgScale = preset.svgScale
         keepFolderStructure = preset.keepFolderStructure
+        isApplyingPreset = false
+        settingsChanged()
         statusLine = "Applied preset “\(preset.name)”."
     }
 
