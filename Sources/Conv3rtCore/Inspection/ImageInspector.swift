@@ -25,6 +25,9 @@ public struct ImageInspector: Sendable {
         if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
            let uti = CGImageSourceGetType(source) as String?,
            CGImageSourceGetCount(source) > 0 {
+            guard uti != "com.adobe.pdf", uti != "public.svg-image" else {
+                throw InspectionError.corrupted("The document could not be opened within resource limits.")
+            }
             return try inspectImageIO(source: source, uti: uti, url: url,
                                       fileSize: fileSize, declaredUTI: declaredUTI)
         }
@@ -117,26 +120,36 @@ public struct ImageInspector: Sendable {
         )
     }
 
-    /// Cheap check: can conv3rt open and decode this file at all?
+    /// Cheap check that the file has a supported source representation.
     public func isReadable(url: URL) -> Bool {
         if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-           CGImageSourceGetType(source) != nil, CGImageSourceGetCount(source) > 0 {
+           let uti = CGImageSourceGetType(source) as String?, CGImageSourceGetCount(source) > 0,
+           uti != "com.adobe.pdf", uti != "public.svg-image" {
             return true
         }
         let kind = SourceProviderFactory.detectKind(url: url)
         if kind != .imageIO, let provider = SourceProviderFactory.make(url: url) {
+            if provider is SVGFrameProvider { return true }
+            if let provider = provider as? any InspectableFrameProvider {
+                return provider.inspection(at: 0) != nil
+            }
             return provider.image(at: 0) != nil
         }
         return false
     }
 
     /// Builds `ImageInfo` for a source that Image I/O cannot type (PDF, SVG).
-    private func inspectProvider(_ provider: any SourceFrameProvider, url: URL, uti: String?,
+    func inspectProvider(_ provider: any SourceFrameProvider, url: URL, uti: String?,
                                  declaredUTI: String?, fileSize: Int64) throws -> ImageInfo {
-        guard let first = provider.image(at: 0) else {
+        func frame(at index: Int) -> FrameInspection? {
+            if let provider = provider as? any InspectableFrameProvider {
+                return provider.inspection(at: index)
+            }
+            return provider.image(at: index).map { FrameInspection(image: $0) }
+        }
+        guard let first = frame(at: 0) else {
             throw InspectionError.corrupted("The document produced no image.")
         }
-        // Use the rendered image's dimensions as authoritative.
         let width = first.width
         let height = first.height
         var depth = first.bitsPerComponent
@@ -147,19 +160,16 @@ public struct ImageInspector: Sendable {
         var decodedBytes = 0.0
         var profileName: String?
         for index in 0..<provider.frameCount {
-            guard let image = index == 0 ? first : provider.image(at: index) else {
+            guard let inspected = index == 0 ? first : frame(at: index) else {
                 throw InspectionError.corrupted("Page \(index + 1) could not be decoded.")
             }
-            depth = max(depth, image.bitsPerComponent)
-            pixelDepth = max(pixelDepth, image.bitsPerPixel)
-            switch image.alphaInfo {
-            case .first, .last, .premultipliedFirst, .premultipliedLast, .alphaOnly: alpha = true
-            default: break
-            }
-            canvasWidth = max(canvasWidth, image.width)
-            canvasHeight = max(canvasHeight, image.height)
-            decodedBytes += Double(image.bytesPerRow) * Double(image.height)
-            if profileName == nil { profileName = image.colorSpace?.name as String? }
+            depth = max(depth, inspected.bitsPerComponent)
+            pixelDepth = max(pixelDepth, inspected.bitsPerPixel)
+            alpha = alpha || inspected.hasAlpha
+            canvasWidth = max(canvasWidth, inspected.width)
+            canvasHeight = max(canvasHeight, inspected.height)
+            decodedBytes += Double(inspected.bytesPerRow) * Double(inspected.height)
+            if profileName == nil { profileName = inspected.colorSpaceName }
         }
         // These builtin files store no ICC profile. The decoder supplies an
         // implicit color space for display, which is not an embedded profile.

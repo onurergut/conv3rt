@@ -53,6 +53,14 @@ public struct PDFFrameProvider: SourceFrameProvider {
         return ctx.makeImage()
     }
 
+    func inspection(at index: Int) -> FrameInspection? {
+        guard index >= 0, index < pageSizes.count,
+              let pixels = RasterSizeGuard.dimensions(size: pageSizes[index], scale: renderScale) else { return nil }
+        return FrameInspection(width: pixels.width, height: pixels.height,
+                               bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: pixels.width * 4,
+                               hasAlpha: true, colorSpaceName: CGColorSpace.sRGB as String)
+    }
+
     public func properties(at index: Int) -> [CFString: Any] {
         guard index >= 0, index < pageSizes.count,
               let pixels = RasterSizeGuard.dimensions(size: pageSizes[index], scale: renderScale) else { return [:] }
@@ -62,3 +70,5 @@ public struct PDFFrameProvider: SourceFrameProvider {
         ]
     }
 }
+
+extension PDFFrameProvider: InspectableFrameProvider {}

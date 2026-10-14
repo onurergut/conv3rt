@@ -15,3 +15,41 @@ public protocol SourceFrameProvider {
     /// Whether the source is animated (has per-frame timing).
     var isAnimated: Bool { get }
 }
+
+protocol InspectableFrameProvider: SourceFrameProvider {
+    func inspection(at index: Int) -> FrameInspection?
+}
+
+struct FrameInspection {
+    let width: Int
+    let height: Int
+    let bitsPerComponent: Int
+    let bitsPerPixel: Int
+    let bytesPerRow: Int
+    let hasAlpha: Bool
+    let colorSpaceName: String?
+
+    init(width: Int, height: Int, bitsPerComponent: Int, bitsPerPixel: Int,
+         bytesPerRow: Int, hasAlpha: Bool, colorSpaceName: String?) {
+        self.width = width
+        self.height = height
+        self.bitsPerComponent = bitsPerComponent
+        self.bitsPerPixel = bitsPerPixel
+        self.bytesPerRow = bytesPerRow
+        self.hasAlpha = hasAlpha
+        self.colorSpaceName = colorSpaceName
+    }
+
+    init(image: CGImage) {
+        width = image.width
+        height = image.height
+        bitsPerComponent = image.bitsPerComponent
+        bitsPerPixel = image.bitsPerPixel
+        bytesPerRow = image.bytesPerRow
+        switch image.alphaInfo {
+        case .first, .last, .premultipliedFirst, .premultipliedLast, .alphaOnly: hasAlpha = true
+        default: hasAlpha = false
+        }
+        colorSpaceName = image.colorSpace?.name as String?
+    }
+}

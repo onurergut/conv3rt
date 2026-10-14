@@ -9,7 +9,9 @@ import CoreGraphics
 /// vector-to-raster lossless operation, and conv3rt labels it as structural.
 public final class SVGFrameProvider: SourceFrameProvider {
 
-    private let rendered: CGImage
+    private let source: NSImage
+    private let proposedRect: NSRect
+    private(set) var renderedImage: CGImage?
     public let frameCount = 1
     public let unitName = "frame"
     public let isAnimated = false
@@ -25,20 +27,25 @@ public final class SVGFrameProvider: SourceFrameProvider {
         // proposed rect, so both sizes must fit before asking it to render.
         guard RasterSizeGuard.dimensions(size: size, scale: 1) != nil,
               RasterSizeGuard.dimensions(size: size, scale: scale) != nil else { return nil }
-        var rect = NSRect(x: 0, y: 0, width: size.width * scale, height: size.height * scale)
-        guard let cg = image.cgImage(forProposedRect: &rect, context: nil, hints: nil),
-              RasterSizeGuard.fits(width: cg.width, height: cg.height, bytesPerPixel: 8) else { return nil }
-        self.rendered = cg
+        self.source = image
+        self.proposedRect = NSRect(x: 0, y: 0, width: size.width * scale, height: size.height * scale)
     }
 
     public func image(at index: Int) -> CGImage? {
-        index == 0 ? rendered : nil
+        guard index == 0 else { return nil }
+        if let renderedImage { return renderedImage }
+        var rect = proposedRect
+        guard let image = source.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              RasterSizeGuard.fits(width: image.width, height: image.height, bytesPerPixel: 8) else { return nil }
+        renderedImage = image
+        return image
     }
 
     public func properties(at index: Int) -> [CFString: Any] {
-        [
-            kCGImagePropertyPixelWidth: rendered.width,
-            kCGImagePropertyPixelHeight: rendered.height,
+        guard let image = image(at: index) else { return [:] }
+        return [
+            kCGImagePropertyPixelWidth: image.width,
+            kCGImagePropertyPixelHeight: image.height,
             kCGImagePropertyColorModel: kCGImagePropertyColorModelRGB,
         ]
     }
