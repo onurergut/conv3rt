@@ -11,6 +11,18 @@ redistributed with conv3rt:
 
 Used under the macOS SDK license agreement.
 
+Bundled update framework
+------------------------
+
+Sparkle
+   Version:   2.10.0 (pinned)
+   Source:    https://github.com/sparkle-project/Sparkle (tag 2.10.0)
+   Files:     Contents/Frameworks/Sparkle.framework, including updater helpers
+              and XPC services from the official universal macOS framework.
+   Purpose:   Signed update checks and downloads; installation requires consent.
+   License:   MIT, with bundled component notices in Sparkle's LICENSE.
+              Full text shipped at Contents/Resources/licenses/Sparkle-LICENSE.txt.
+
 Bundled third-party codecs
 --------------------------
 
