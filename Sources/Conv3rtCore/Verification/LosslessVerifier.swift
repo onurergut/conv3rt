@@ -2,6 +2,29 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
+/// Decodes an IEEE 754 half-precision bit pattern to `Double` without the
+/// `Float16` type, which Swift only provides on Apple silicon. Intel builds
+/// need the same value to verify 16-bit float samples losslessly.
+enum HalfFloat {
+    static func decode(_ bits: UInt16) -> Double {
+        let sign = UInt64(bits & 0x8000) << 48
+        let exponent = UInt64(bits >> 10) & 0x1F
+        let mantissa = UInt64(bits & 0x3FF)
+        if exponent == 0x1F {
+            return Double(bitPattern: sign | 0x7FF0_0000_0000_0000 | (mantissa << 42))
+        }
+        if exponent == 0 {
+            if mantissa == 0 { return Double(bitPattern: sign) }
+            var remainder = mantissa
+            var shift: UInt64 = 0
+            while remainder & 0x400 == 0 { remainder <<= 1; shift += 1 }
+            let field = UInt64(1009 - Int(shift))
+            return Double(bitPattern: sign | (field << 52) | ((remainder & 0x3FF) << 42))
+        }
+        return Double(bitPattern: sign | ((exponent + 1008) << 52) | (mantissa << 42))
+    }
+}
+
 /// Confirms that a conversion the planner promised as **Lossless** really
 /// preserved the decoded image: it re-decodes the output and compares it to the
 /// source frame by frame. This is what makes "Lossless" a claim backed by
@@ -204,7 +227,7 @@ struct LosslessVerifier {
             let word = rawWord(x: x, y: y, component: component)
             let bits = image.bitsPerComponent
             if image.bitmapInfo.contains(.floatComponents) {
-                if bits == 16 { return Double(Float16(bitPattern: UInt16(word))) }
+                if bits == 16 { return HalfFloat.decode(UInt16(word)) }
                 return Double(Float(bitPattern: UInt32(word)))
             }
             return Double(word) / Double((UInt64(1) << bits) - 1)
