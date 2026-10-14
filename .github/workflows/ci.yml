@@ -20,8 +20,8 @@ jobs:
         run: swift build
 
       - name: Test
-        # libjxl is not built in CI, so the JPEG XL write tests are compiled out
-        # and the suite is 2 tests smaller. Everything else runs.
+        # Optional libjxl and libavif codecs are not built in CI, so their write
+        # tests skip. Everything else runs.
         run: swift test --enable-code-coverage
 
       - name: Coverage summary

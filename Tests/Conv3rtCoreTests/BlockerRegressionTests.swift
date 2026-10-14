@@ -121,13 +121,15 @@ final class BlockerRegressionTests: XCTestCase {
     // MARK: - Blocker 6: AVIF must not claim metadata it does not write
 
     func testAVIFReportsLimitedMetadata() throws {
+        let avif = target("avif")
+        try XCTSkipUnless(avif.canWrite, "AVIF codec is not built in this environment")
         let dir = TempDir()
         let src = try Fixtures.pngWithMetadata(directory: dir.url)   // has GPS + EXIF
         let info = try inspector.inspect(url: src)
-        let plan = planner.plan(source: info, target: target("avif"),
+        let plan = planner.plan(source: info, target: avif,
                                 settings: ConversionSettings(mode: .highestQuality, metadataPolicy: .keep))
         XCTAssertTrue(plan.changes.contains { $0.code == "meta.limited" },
                       "AVIF does not write EXIF/XMP, so metadata must be reported as limited")
-        XCTAssertFalse(target("avif").supportsMetadata)
+        XCTAssertFalse(avif.supportsMetadata)
     }
 }
