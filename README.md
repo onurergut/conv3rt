@@ -48,8 +48,11 @@ video or audio, or producing lossless AVIF or camera RAW output.
 2. Unzip it in Finder (double-click) and drag **conv3rt** to Applications.
 3. Open it. Public releases are Developer ID-signed and notarized by Apple.
 
-**Requirements:** macOS 14 or later, Apple Silicon or Intel. No Homebrew,
-runtime, or additional codec downloads.
+**Requirements:** macOS 14 or later. On Apple Silicon, use the Apple Silicon
+build; it runs natively. The Intel build is for Intel Macs. Running it on Apple
+Silicon requires Rosetta 2, which Apple supports through macOS 27; macOS 28
+removes Rosetta except for certain legacy games. No Homebrew, runtime, or
+additional codec downloads.
 
 Use Finder's Archive Utility or `ditto -x -k` to unzip. Command-line `unzip`
 can add AppleDouble metadata files; the 0.6.1 archives are built without them,

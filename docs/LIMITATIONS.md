@@ -51,6 +51,9 @@ faked in the UI.
   reporting are disabled. Installation waits while conversion is active.
 - Any version before **0.6.0** has no updater; moving to 0.6.0 or later is a
   one-time manual install. From 0.6.0 on the app handles its own updates.
+- The **Intel** build is `x86_64`. On Apple Silicon it requires Rosetta 2.
+  Apple supports Rosetta on macOS 27 and earlier; macOS 28 removes it except
+  for certain legacy games. Apple Silicon users must use the arm64 build.
 - Architecture-specific stable feeds in `updates/` are live and point at the
   notarized **v0.6.1** release archives.
 
