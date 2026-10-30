@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.6.1
+
+Released 30 October 2026.
+
+- **Clean release archives.** Final ZIPs are built with `ditto --norsrc`, so
+  they contain no AppleDouble `._*` metadata files. Command-line `unzip` no
+  longer introduces files that break the code signature.
+- No functional changes to conversion or the app UI.
+
+## 0.6.0
+
+Released 14 October 2026.
+
+- **Opt-in Sparkle 2.10.0 updates.** Manual **Check for Updates...**; automatic
+  checks are offered on the second launch and stay off unless accepted. Every
+  installation requires approval; silent installs, automatic downloads and
+  system-profile reporting are disabled. Updates wait while importing or
+  converting.
+- **Signed, per-architecture update feeds** (`updates/appcast-arm64.xml`,
+  `updates/appcast-x86_64.xml`) pointing at notarized GitHub Release archives.
+  The local appcast generator checks build monotonicity, the archived public
+  key, and the exact signed ZIP bytes.
+- **Hardened packaging and release verification**: the Sparkle framework is
+  embedded and verified in both architectures; release checks cover signatures,
+  notarization stapling, and archive contents.
+- **Intel build fix**: half-float decoding no longer depends on `Float16`,
+  which is unavailable on Intel.
+- **Imports** avoid redundant document rendering.
+- **Presets** apply through one final conversion plan; a safety pass covers
+  queue and output edge cases.
+
 ## 0.5.0
 
 - **Netpbm family**: full PFM (Portable Float Map, 32-bit float) read/write, plus

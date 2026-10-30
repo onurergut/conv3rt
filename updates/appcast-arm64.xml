@@ -6,6 +6,14 @@
         <description>Stable conv3rt updates for arm64.</description>
         <language>en</language>
         <item>
+            <title>conv3rt 0.6.1</title>
+            <pubDate>Fri, 30 Oct 2026 16:54:24 +0000</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/onurergut/conv3rt/releases/download/v0.6.1/conv3rt-0.6.1-apple-silicon.zip" length="5678271" type="application/octet-stream" sparkle:edSignature="8gxlv+X7qlYLECRVQmaV4ZDX8dmV2hs+vPd8QmpcGg5P7g64J66dpJAse3VNLEig6f/VWKYbUKBTczDSHKARAA=="></enclosure>
+        </item>
+        <item>
             <title>conv3rt apple-silicon</title>
             <pubDate>Wed, 14 Oct 2026 17:12:35 +0000</pubDate>
             <sparkle:version>2</sparkle:version>

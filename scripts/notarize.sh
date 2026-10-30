@@ -26,7 +26,7 @@ spctl -a -vvv -t exec "$APP" || echo "(spctl may fail until notarized — expect
 
 TMPZIP="$(mktemp -d)/conv3rt.zip"
 echo "==> Zipping for notarization ..."
-ditto -c -k --keepParent "$APP" "$TMPZIP"
+ditto -c -k --keepParent --norsrc "$APP" "$TMPZIP"
 
 echo "==> Submitting to the notary service (this can take a few minutes) ..."
 xcrun notarytool submit "$TMPZIP" --keychain-profile "$PROFILE" --wait
@@ -39,6 +39,6 @@ echo "==> Gatekeeper assessment after stapling ..."
 spctl -a -vvv -t exec "$APP"
 
 echo "==> Re-zipping the stapled app next to it ..."
-ditto -c -k --keepParent "$APP" "$OUT"
+ditto -c -k --keepParent --norsrc "$APP" "$OUT"
 shasum -a 256 "$OUT" | awk '{print $1}' > "$OUT.sha256"
 echo "Notarized package: $OUT"

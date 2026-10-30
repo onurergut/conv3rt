@@ -6,6 +6,14 @@
         <description>Stable conv3rt updates for x86_64.</description>
         <language>en</language>
         <item>
+            <title>conv3rt 0.6.1</title>
+            <pubDate>Fri, 30 Oct 2026 16:54:34 +0000</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/onurergut/conv3rt/releases/download/v0.6.1/conv3rt-0.6.1-intel.zip" length="7211806" type="application/octet-stream" sparkle:edSignature="fuuh8RyVXz+HFY39vfVBTORl8cHgaG8uUMLWkLY4MgdxjGy17hSr2Av+B7gJRW3T9nwYlhQ8q9h7O8vH0OVeAw=="></enclosure>
+        </item>
+        <item>
             <title>conv3rt intel</title>
             <pubDate>Wed, 14 Oct 2026 17:12:57 +0000</pubDate>
             <sparkle:version>2</sparkle:version>

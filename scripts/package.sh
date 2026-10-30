@@ -6,8 +6,8 @@
 set -euo pipefail
 
 ARCH="${1:-$(uname -m)}"
-VERSION="${2:-0.6.0}"
-BUILD_NUMBER="${3:-2}"
+VERSION="${2:-0.6.1}"
+BUILD_NUMBER="${3:-3}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 APP_NAME="conv3rt"
@@ -125,7 +125,7 @@ mkdir -p "$OUTROOT"
 mv "$BUNDLE" "$OUTROOT/"
 CONTENTS="$OUTROOT/$APP_NAME.app"
 printf '==> Zipping...\n'
-ditto -c -k --keepParent "$CONTENTS" "$ARCHIVE"
+ditto -c -k --keepParent --norsrc "$CONTENTS" "$ARCHIVE"
 DIGEST="$(shasum -a 256 "$ARCHIVE")"
 printf '%s\n' "${DIGEST%% *}" > "$ARCHIVE.sha256"
 # Apply the same closed-bundle checks used by release verification before success.

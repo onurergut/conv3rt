@@ -39,6 +39,64 @@ swift run conv3rt --dump-capabilities   # inspect live format support
 - Update docs when behavior or support changes.
 - Write UI strings and docs in English.
 
+## Project layout
+
+```text
+Sources/Conv3rtCore/    UI-free core: capabilities, inspection, planning,
+                        conversion, verification, file access, queue
+Sources/Conv3rtApp/     SwiftUI app: window, file list, settings, Finder services
+Tests/Conv3rtCoreTests/ the test suite
+docs/                   format matrix and user-facing notes
+```
+
+## Release builds
+
+Requires macOS 14+, the Xcode command line tools, and a Developer ID
+Application identity for distribution.
+
+```sh
+swift test
+
+# Package locally; distribution still needs Developer ID signing + notarization.
+scripts/package.sh arm64 0.6.1 3     # Apple Silicon; version and monotonic build
+scripts/package.sh x86_64 0.6.1 3    # Intel; same release build number
+
+# Deterministic appcast fixtures; no production key or network.
+bash scripts/test-appcast.sh
+```
+
+Optional codecs:
+
+```sh
+scripts/build-jxl.sh arm64   # builds libjxl; a few minutes per arch
+scripts/build-avif.sh arm64  # builds libavif + libaom; slower
+```
+
+WebP writing works without either. Without libjxl, JPEG XL is read-only and its
+tests are skipped.
+
+### Update feeds
+
+After Developer ID signing, approved notarization, stapling, and regeneration
+of the final ZIP, prepare one architecture's feed:
+
+```sh
+# SPARKLE_ACCOUNT names the app-specific Keychain account used for this app.
+swift scripts/generate-appcast.swift \
+  --archive dist/conv3rt-0.6.1-apple-silicon/conv3rt-0.6.1-apple-silicon.zip \
+  --asset-url https://github.com/onurergut/conv3rt/releases/download/v0.6.1/conv3rt-0.6.1-apple-silicon.zip \
+  --arch arm64 --account "$SPARKLE_ACCOUNT"
+```
+
+The generator derives version, monotonic build number, and minimum macOS from
+the archived plist, runs `scripts/verify-release.sh` against a staged copy, and
+uses Sparkle 2.10.0's `sign_update` to sign and verify the final ZIP bytes. It
+updates only the matching local feed. It performs no network requests, Apple
+uploads, release creation, or push. Publish the exact signed ZIP without further
+changes, then publish the matching feed. It cannot confirm that a remote asset
+exists or matches those bytes. Intel uses `--arch x86_64` and the
+`conv3rt-<version>-intel.zip` archive. Build numbers must increase.
+
 ## License
 
 By contributing you agree your contributions are licensed under the MIT License

@@ -223,8 +223,8 @@ done
 export FIXTURE_ARCH=arm64
 : > "$FIXTURE_SIGN_LOG"
 bash "$FIXTURE/scripts/package.sh" arm64 > "$TEMP/package.log" 2>&1
-[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$FIXTURE/dist/conv3rt-0.6.0-apple-silicon/conv3rt.app/Contents/Info.plist")" == 0.6.0 ]]
-[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$FIXTURE/dist/conv3rt-0.6.0-apple-silicon/conv3rt.app/Contents/Info.plist")" == 2 ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$FIXTURE/dist/conv3rt-0.6.1-apple-silicon/conv3rt.app/Contents/Info.plist")" == 0.6.1 ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$FIXTURE/dist/conv3rt-0.6.1-apple-silicon/conv3rt.app/Contents/Info.plist")" == 3 ]]
 unset CODESIGN_IDENTITY
 package
 export FIXTURE_SIGN_FAILURE=Autoupdate

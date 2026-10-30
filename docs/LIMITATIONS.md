@@ -49,14 +49,14 @@ faked in the UI.
   only after opt-in through its native permission prompt on the second launch.
   Every installation requires approval; silent installation and system-profile
   reporting are disabled. Installation waits while conversion is active.
-- Any version before **0.6.0** has no updater; moving to 0.6.0 is a one-time
-  manual install. From 0.6.0 on the app handles its own updates.
+- Any version before **0.6.0** has no updater; moving to 0.6.0 or later is a
+  one-time manual install. From 0.6.0 on the app handles its own updates.
 - Architecture-specific stable feeds in `updates/` are live and point at the
-  notarized **v0.6.0** release archives.
+  notarized **v0.6.1** release archives.
 
 ## Build / release
 
-- **0.6.0** is built, Developer ID-signed, **notarized by Apple**, stapled and
+- **0.6.1** is built, Developer ID-signed, **notarized by Apple**, stapled and
   published as a GitHub Release for both **Apple Silicon** and **Intel**. The
   Intel build compiles, signs and notarizes, but has not been run on real Intel
   hardware here — cross-compiling is not the same as testing on an Intel Mac.
